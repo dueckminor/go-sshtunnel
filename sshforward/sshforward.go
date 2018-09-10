@@ -61,15 +61,16 @@ func (forward *SSHForward) Dial(network, addr string) (net.Conn, error) {
 
 	// reconnect if required
 	log.Printf("dial %s failed: %s, reconnecting ssh server %s...\n", addr, err, forward.address)
-	clif, err := forward.syncCalls.Do(network+addr, func() (interface{}, error) {
-		return ssh.Dial("tcp", forward.address, forward.config)
-	})
+	returnValue, err := forward.syncCalls.CallSynchronized(network+addr,
+		func() (interface{}, error) {
+			return ssh.Dial("tcp", forward.address, forward.config)
+		})
 	if err != nil {
 		log.Printf("connect ssh server %s failed: %s\n", forward.address, err)
 		return nil, err
 	}
 
-	cli = clif.(*ssh.Client)
+	cli = returnValue.(*ssh.Client)
 
 	forward.lock.Lock()
 	forward.client = cli
@@ -80,9 +81,9 @@ func (forward *SSHForward) Dial(network, addr string) (net.Conn, error) {
 
 
 type call struct {
-	waitGroup sync.WaitGroup
-	val interface{}
-	err error
+	waitGroup   sync.WaitGroup
+	returnValue interface{}
+	err         error
 }
 
 type CallGroup struct {
@@ -94,7 +95,7 @@ type CallGroup struct {
 // sure that only one execution is in-flight for a given key at a
 // time. If a duplicate comes in, the duplicate caller waits for the
 // original to complete and receives the same results.
-func (group *CallGroup) Do(key string, fn func() (interface{}, error)) (interface{}, error) {
+func (group *CallGroup) CallSynchronized(key string, callMe func() (interface{}, error)) (interface{}, error) {
 	group.mutex.Lock()
 	if group.id2call == nil {
 		group.id2call = make(map[string]*call)
@@ -102,19 +103,19 @@ func (group *CallGroup) Do(key string, fn func() (interface{}, error)) (interfac
 	if c, ok := group.id2call[key]; ok {
 		group.mutex.Unlock()
 		c.waitGroup.Wait()
-		return c.val, c.err
+		return c.returnValue, c.err
 	}
 	c := new(call)
 	c.waitGroup.Add(1)
 	group.id2call[key] = c
 	group.mutex.Unlock()
 
-	c.val, c.err = fn()
+	c.returnValue, c.err = callMe()
 	c.waitGroup.Done()
 
 	group.mutex.Lock()
 	delete(group.id2call, key)
 	group.mutex.Unlock()
 
-	return c.val, c.err
+	return c.returnValue, c.err
 }
