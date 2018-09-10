@@ -2,112 +2,65 @@ package main
 
 import (
 	"fmt"
-	"io"
+	"gopkg.in/alecthomas/kingpin.v2"
 	"log"
 	"net"
+	"net/url"
 	"os"
-	"strconv"
-
-	"github.com/dueckminor/go-sshtunnel/iptables"
-	"github.com/dueckminor/go-sshtunnel/sshforward"
 )
 
-func handleConnection(ssh *sshforward.SSHForward, conn *net.TCPConn) {
-	defer conn.Close()
-	ip, port, conn, err := iptables.GetOriginalDst(conn)
-	if err != nil {
-		L.Println("Failed to get original destination:", err)
-		return
-	}
-	remoteAddr := ip + ":" + strconv.FormatUint(uint64(port), 10)
-	L.Println("Connecting to:", remoteAddr)
-	remoteConn, err := ssh.Dial("tcp", remoteAddr)
-	if err != nil {
-		L.Println("Failed to connect to original destination:", err)
-		return
-	}
-	nSend, nReceived, err := forwardConnection(conn, remoteConn)
+var (
+	showVersion = kingpin.Flag("version", "Show version information of sshtunnel").Bool()
+	sshServer = kingpin.Arg("ssh-server", "URL to ssh server. E.g. user@my.sshserver.com:22").Required().String()
+	privateKey = kingpin.Flag("private-key", "Location of the ssh private key. Default is $HOME/.ssh/id_rsa").
+		Default(os.ExpandEnv("$HOME/.ssh/id_rsa")).Short('i').String()
+	networks = kingpin.Arg("networks", "List of networks to route via ssh server. Default is 10.0.0.0/8").
+		Default("10.0.0.0/8").Strings()
 
-	L.Println("Send bytes:", nSend)
-	L.Println("Received bytes:", nReceived)
-}
+	// automatically filled by goreleaser OR manually by go build -ldflags="-X main.version=1.0 ..."
+	version = "dev"
+	commit = "none"
+	date = "unknown"
+)
 
-func forwardConnection(localConn, remoteConn net.Conn) (nSend, nReceived int64, err error) {
-	done := make(chan bool)
-
-	var errSend error
-	var errReceive error
-
-	go func() {
-		defer localConn.Close()
-		defer remoteConn.Close()
-		nReceived, errReceive = io.Copy(localConn, remoteConn)
-		done <- true
-	}()
-	go func() {
-		defer localConn.Close()
-		defer remoteConn.Close()
-		nSend, errSend = io.Copy(remoteConn, localConn)
-		done <- true
-	}()
-
-	_ = <-done
-	_ = <-done
-
-	if errSend != nil {
-		err = errSend
-	} else if errReceive != nil {
-		err = errReceive
-	}
-
-	return nSend, nReceived, err
-}
-
-func start(user, dest string, networkNames ...string) {
-	networks := make([]*net.IPNet, len(networkNames))
-
-	for idx, networkName := range networkNames {
-		_, network, err := net.ParseCIDR(networkName)
-		if err != nil {
-			panic(err)
-		}
-		networks[idx] = network
-	}
-
-	addr, err := net.ResolveTCPAddr("tcp4", "127.0.0.1:0")
-	listener, err := net.ListenTCP("tcp4", addr)
-	defer listener.Close()
-
-	addr, err = net.ResolveTCPAddr(listener.Addr().Network(), listener.Addr().String())
-
-	fmt.Printf("Listen on port: %d", addr.Port)
-
-	err = iptables.RedirectNetworksToPort(addr.Port, networks...)
-	if err != nil {
-		panic(err)
-	}
-
-	ssh, err := sshforward.NewSSH(dest, "22", user, os.ExpandEnv("$HOME/.ssh/id_rsa"))
-
-	for {
-		conn, err := listener.AcceptTCP()
-		if err != nil {
-			log.Fatalln(err)
-			continue
-		}
-		go handleConnection(ssh, conn)
-	}
-}
 
 var L = log.New(os.Stdout, "sshuttle: ", log.Lshortfile|log.LstdFlags)
 
 func main() {
-	if len(os.Args) < 2 {
-		panic("Usage: gosshuttle jumpbox_ip [networks...]")
+	kingpin.Parse()
+	if *showVersion {
+		fmt.Printf("version: %v\ncommit: %v\ndate: %v\n", version, commit, date)
+		os.Exit(0)
 	}
-	if len(os.Args) == 2 {
-		start(os.Getenv("USERNAME"), os.Args[1], "10.0.0.0/8")
+
+	tunnel := &SSHTunnel{}
+	sshUrl, err := url.Parse("ssh://" + *sshServer)
+	if err != nil {
+		fmt.Printf("%q is not a valid ssh url: %v", *sshServer, err)
+		os.Exit(1)
+	}
+
+	if sshUrl.User == nil || sshUrl.User.Username() == "" {
+		tunnel.user = os.Getenv("USERNAME")
 	} else {
-		start(os.Getenv("USERNAME"), os.Args[1], os.Args[2:]...)
+		tunnel.user = sshUrl.User.Username()
 	}
+
+	tunnel.port = "22"
+	if sshUrl.Port() != "" {
+		tunnel.port = sshUrl.Port()
+	}
+	tunnel.host= sshUrl.Host
+	tunnel.privateKey = *privateKey
+	tunnel.networks = make([]*net.IPNet, len(*networks))
+
+	for idx, networkName := range *networks {
+		_, network, err := net.ParseCIDR(networkName)
+		if err != nil {
+			panic(err)
+		}
+		tunnel.networks[idx] = network
+	}
+
+	tunnel.Start()
 }

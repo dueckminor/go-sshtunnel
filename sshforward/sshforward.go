@@ -16,7 +16,7 @@ type SSHForward struct {
 	lock      sync.RWMutex
 }
 
-func NewSSH(server, port, user, privateKeyFile string) (*SSHForward, error) {
+func NewSSHForward(server, port, user, privateKeyFile string) (*SSHForward, error) {
 	forward := &SSHForward{
 		address:   server+":"+port,
 		config:    &ssh.ClientConfig{User: user},
