@@ -8,19 +8,11 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/dueckminor/gosshuttle/iptables"
-	"github.com/justmao945/mallory"
+	"github.com/dueckminor/go-sshtunnel/iptables"
+	"github.com/dueckminor/go-sshtunnel/sshforward"
 )
 
-func newSSH(user, dest string) (*mallory.SSH, error) {
-	config := &mallory.Config{
-		File: &mallory.ConfigFile{
-			PrivateKey:   os.ExpandEnv("$HOME/.ssh/id_rsa"),
-			RemoteServer: "ssh://" + user + "@" + dest + ":22"}}
-	return mallory.NewSSH(config)
-}
-
-func handleConnection(ssh *mallory.SSH, conn *net.TCPConn) {
+func handleConnection(ssh *sshforward.SSHForward, conn *net.TCPConn) {
 	defer conn.Close()
 	ip, port, conn, err := iptables.GetOriginalDst(conn)
 	if err != nil {
@@ -29,7 +21,7 @@ func handleConnection(ssh *mallory.SSH, conn *net.TCPConn) {
 	}
 	remoteAddr := ip + ":" + strconv.FormatUint(uint64(port), 10)
 	L.Println("Connecting to:", remoteAddr)
-	remoteConn, err := ssh.Direct.Tr.Dial("tcp", remoteAddr)
+	remoteConn, err := ssh.Dial("tcp", remoteAddr)
 	if err != nil {
 		L.Println("Failed to connect to original destination:", err)
 		return
@@ -38,11 +30,6 @@ func handleConnection(ssh *mallory.SSH, conn *net.TCPConn) {
 
 	L.Println("Send bytes:", nSend)
 	L.Println("Received bytes:", nReceived)
-
-	// if err != nil {
-	// 	L.Println("Failed to transfer data to/from original destination:", err)
-	// 	return
-	// }
 }
 
 func forwardConnection(localConn, remoteConn net.Conn) (nSend, nReceived int64, err error) {
@@ -100,7 +87,7 @@ func start(user, dest string, networkNames ...string) {
 		panic(err)
 	}
 
-	ssh, err := newSSH(user, dest)
+	ssh, err := sshforward.NewSSH(dest, "22", user, os.ExpandEnv("$HOME/.ssh/id_rsa"))
 
 	for {
 		conn, err := listener.AcceptTCP()
@@ -113,10 +100,6 @@ func start(user, dest string, networkNames ...string) {
 }
 
 var L = log.New(os.Stdout, "sshuttle: ", log.Lshortfile|log.LstdFlags)
-
-func init() {
-	mallory.L = L
-}
 
 func main() {
 	if len(os.Args) < 2 {
