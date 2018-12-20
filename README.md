@@ -1,5 +1,3 @@
-[![ReportCard][ReportCard-Image]][ReportCard-URL] [![Release][Release-Image]][Release-URL]
-
 # go-sshtunnel
 
 This is a tiny ssh tunnel implemented in GO. It's main purpose is to establish an SSH connection from a Docker container to a jumpbox and redirect all outgoing TCP traffic over this connection.
