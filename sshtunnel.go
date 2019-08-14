@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"os"
 	"strconv"
 )
 
@@ -14,6 +15,7 @@ type SSHTunnel struct {
 	user string
 	host string
 	port string
+	timeout int
 	privateKey string
 	networks []*net.IPNet
 }
@@ -69,7 +71,7 @@ func forwardConnection(localConn, remoteConn net.Conn) (nSend, nReceived int64, 
 	return nSend, nReceived, err
 }
 
-func (tunnel *SSHTunnel) Start() {
+func (tunnel *SSHTunnel) Start() (err error){
 	addr, err := net.ResolveTCPAddr("tcp4", "127.0.0.1:0")
 	listener, err := net.ListenTCP("tcp4", addr)
 	defer listener.Close()
@@ -83,7 +85,11 @@ func (tunnel *SSHTunnel) Start() {
 		panic(err)
 	}
 
-	forward, err := sshforward.NewSSHForward(tunnel.host, tunnel.port, tunnel.user, tunnel.privateKey)
+	forward, err := sshforward.NewSSHForward(tunnel.host, tunnel.port, tunnel.user, tunnel.privateKey, tunnel.timeout)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		return err
+	}
 
 	for {
 		conn, err := listener.AcceptTCP()

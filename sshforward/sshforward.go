@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"time"
 )
 
 type SSHForward struct {
@@ -16,7 +17,7 @@ type SSHForward struct {
 	lock      sync.RWMutex
 }
 
-func NewSSHForward(server, port, user, privateKeyFile string) (*SSHForward, error) {
+func NewSSHForward(server, port, user, privateKeyFile string, timeout int) (*SSHForward, error) {
 	forward := &SSHForward{
 		address:   server+":"+port,
 		config:    &ssh.ClientConfig{User: user},
@@ -36,11 +37,12 @@ func NewSSHForward(server, port, user, privateKeyFile string) (*SSHForward, erro
 	}
 
 	forward.config.Auth = append(forward.config.Auth, ssh.PublicKeys(signer))
+	forward.config.Timeout = time.Duration(timeout) * time.Second
 	forward.config.HostKeyCallback = func(hostname string, remote net.Addr, key ssh.PublicKey) error {
 		return nil
 	}
 
-	forward.client, err = ssh.Dial("tcp", forward.address, forward.config)
+	forward.client, err = ssh.Dial("tcp", forward.address, forward.config )
 	if err != nil {
 		log.Printf("ssh connection failed:%v", err)
 		return nil, err
