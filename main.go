@@ -16,6 +16,7 @@ var (
 		Default(os.ExpandEnv("$HOME/.ssh/id_rsa")).Short('i').String()
 	networks = kingpin.Arg("networks", "List of networks to route via ssh server. Default is 10.0.0.0/8").
 		Default("10.0.0.0/8").Strings()
+	sshTimeout = kingpin.Flag("timeout", "Set time for ssh connection in second. Default is 10").Default("10").Int()
 
 	// automatically filled by goreleaser OR manually by go build -ldflags="-X main.version=1.0 ..."
 	version = "dev"
@@ -53,6 +54,7 @@ func main() {
 	tunnel.host= sshUrl.Host
 	tunnel.privateKey = *privateKey
 	tunnel.networks = make([]*net.IPNet, len(*networks))
+	tunnel.timeout = *sshTimeout
 
 	for idx, networkName := range *networks {
 		_, network, err := net.ParseCIDR(networkName)
@@ -63,4 +65,5 @@ func main() {
 	}
 
 	tunnel.Start()
+
 }
