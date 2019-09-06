@@ -2,22 +2,24 @@ package main
 
 import (
 	"fmt"
-	"github.com/dueckminor/go-sshtunnel/iptables"
-	"github.com/dueckminor/go-sshtunnel/sshforward"
 	"io"
 	"log"
 	"net"
 	"os"
 	"strconv"
+
+	"github.com/dueckminor/go-sshtunnel/iptables"
+	"github.com/dueckminor/go-sshtunnel/sshforward"
 )
 
 type SSHTunnel struct {
-	user string
-	host string
-	port string
-	timeout int
+	user       string
+	host       string
+	port       string
+	timeout    int
 	privateKey string
-	networks []*net.IPNet
+	networks   []*net.IPNet
+	dns        string
 }
 
 func handleConnection(forward *sshforward.SSHForward, conn *net.TCPConn) {
@@ -71,16 +73,32 @@ func forwardConnection(localConn, remoteConn net.Conn) (nSend, nReceived int64, 
 	return nSend, nReceived, err
 }
 
-func (tunnel *SSHTunnel) Start() (err error){
+func (tunnel *SSHTunnel) Start() (err error) {
+
 	addr, err := net.ResolveTCPAddr("tcp4", "127.0.0.1:0")
 	listener, err := net.ListenTCP("tcp4", addr)
 	defer listener.Close()
 
 	addr, err = net.ResolveTCPAddr(listener.Addr().Network(), listener.Addr().String())
 
-	fmt.Printf("Listen on port: %d", addr.Port)
+	fmt.Printf("Listen on port: %d\n", addr.Port)
 
-	err = iptables.RedirectNetworksToPort(addr.Port, tunnel.networks...)
+	redirectScript := &iptables.RedirectScript{}
+	redirectScript.Init(addr.Port)
+	redirectScript.AddNetworks(tunnel.networks...)
+
+	if len(tunnel.dns) > 0 {
+		go forwardDNS(fmt.Sprintf("127.0.0.1:%d", addr.Port), tunnel.dns)
+		addrDNS, err := net.ResolveTCPAddr("tcp4", tunnel.dns)
+		if err != nil {
+			panic(err)
+		}
+		redirectScript.AddHosts(addrDNS.IP)
+		redirectScript.AddDNSProxy(addr.Port)
+	}
+
+	err = redirectScript.Execute()
+
 	if err != nil {
 		panic(err)
 	}
