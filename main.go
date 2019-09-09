@@ -2,11 +2,13 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"net/url"
 	"os"
 
+	"github.com/dueckminor/go-sshtunnel/control"
+	"github.com/dueckminor/go-sshtunnel/daemon"
+	"github.com/dueckminor/go-sshtunnel/sshtunnel"
 	"gopkg.in/alecthomas/kingpin.v2"
 )
 
@@ -26,16 +28,20 @@ var (
 	date    = "unknown"
 )
 
-var L = log.New(os.Stdout, "sshuttle: ", log.Lshortfile|log.LstdFlags)
+var sshTunnelDaemon = daemon.Daemon{
+	PIDFile: "/tmp/sshtunnel.pid",
+}
 
-func main() {
+func run() {
 	kingpin.Parse()
 	if *showVersion {
 		fmt.Printf("version: %v\ncommit: %v\ndate: %v\n", version, commit, date)
 		os.Exit(0)
 	}
 
-	tunnel := &SSHTunnel{}
+	control.Start()
+
+	tunnel := &sshtunnel.SSHTunnel{}
 	sshUrl, err := url.Parse("ssh://" + *sshServer)
 	if err != nil {
 		fmt.Printf("%q is not a valid ssh url: %v", *sshServer, err)
@@ -43,21 +49,21 @@ func main() {
 	}
 
 	if sshUrl.User == nil || sshUrl.User.Username() == "" {
-		tunnel.user = os.Getenv("USERNAME")
+		tunnel.User = os.Getenv("USERNAME")
 	} else {
-		tunnel.user = sshUrl.User.Username()
+		tunnel.User = sshUrl.User.Username()
 	}
 
-	tunnel.port = "22"
+	tunnel.Port = "22"
 	if sshUrl.Port() != "" {
-		tunnel.port = sshUrl.Port()
+		tunnel.Port = sshUrl.Port()
 	}
-	tunnel.host = sshUrl.Host
-	tunnel.privateKey = *privateKey
-	tunnel.networks = make([]*net.IPNet, len(*networks))
-	tunnel.timeout = *sshTimeout
+	tunnel.Host = sshUrl.Host
+	tunnel.PrivateKey = *privateKey
+	tunnel.Networks = make([]*net.IPNet, len(*networks))
+	tunnel.Timeout = *sshTimeout
 	if dnsServer != nil {
-		tunnel.dns = *dnsServer
+		tunnel.DNS = *dnsServer
 	}
 
 	for idx, networkName := range *networks {
@@ -65,9 +71,12 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		tunnel.networks[idx] = network
+		tunnel.Networks[idx] = network
 	}
 
 	tunnel.Start()
+}
 
+func main() {
+	sshTunnelDaemon.Main(run)
 }

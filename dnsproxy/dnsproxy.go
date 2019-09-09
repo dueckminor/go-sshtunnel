@@ -1,4 +1,4 @@
-package main
+package dnsproxy
 
 import (
 	"fmt"
@@ -6,7 +6,7 @@ import (
 	"github.com/miekg/dns"
 )
 
-func forwardDNS(listenAddr, targetAddr string) {
+func ForwardDNS(listenAddr, targetAddr string) {
 	fmt.Printf("Forward DNS requests to: %s\n", targetAddr)
 
 	dns.HandleFunc(".", func(w dns.ResponseWriter, r *dns.Msg) {
