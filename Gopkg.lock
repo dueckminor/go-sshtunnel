@@ -21,6 +21,14 @@
   revision = "2efee857e7cfd4f3d0138cc3cbb1b4966962b93a"
 
 [[projects]]
+  digest = "1:857519ede212509c0325923628682c94d837329fda0f7409164fb4862618e50d"
+  name = "github.com/miekg/dns"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "2acbc9eff343291e671c1a9ba7be3201bf66dfd6"
+  version = "v1.1.17"
+
+[[projects]]
   branch = "master"
   digest = "1:b166c998eb589cd6da3aa24901f328e2d14cfe17cda0957129f880723ee9384b"
   name = "golang.org/x/crypto"
@@ -37,6 +45,31 @@
   revision = "0709b304e793a5edb4a2c0145f281ecdc20838a4"
 
 [[projects]]
+  branch = "master"
+  digest = "1:9896e6185a5f9a8c93b4c641c96bfab46677abf2be0a332a2affde2f575c0aad"
+  name = "golang.org/x/net"
+  packages = [
+    "bpf",
+    "internal/iana",
+    "internal/socket",
+    "ipv4",
+    "ipv6",
+  ]
+  pruneopts = "UT"
+  revision = "a7b16738d86b947dd0fadb08ca2c2342b51958b6"
+
+[[projects]]
+  branch = "master"
+  digest = "1:30fb053552c768bb5e5edca6191b2d46526490a5e610e64ed740128ed4564898"
+  name = "golang.org/x/sys"
+  packages = [
+    "unix",
+    "windows",
+  ]
+  pruneopts = "UT"
+  revision = "bbd175535a8b9969bb0b33f1502f681ee0b122bd"
+
+[[projects]]
   digest = "1:c06d9e11d955af78ac3bbb26bd02e01d2f61f689e1a3bce2ef6fb683ef8a7f2d"
   name = "gopkg.in/alecthomas/kingpin.v2"
   packages = ["."]
@@ -48,6 +81,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/miekg/dns",
     "golang.org/x/crypto/ssh",
     "gopkg.in/alecthomas/kingpin.v2",
   ]
