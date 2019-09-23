@@ -102,9 +102,9 @@ func (daemon Daemon) Stop() {
 }
 
 func (daemon Daemon) Run(run func()) {
-	logFile, _ := os.OpenFile("/tmp/sshtunnel.log", os.O_WRONLY|os.O_CREATE|os.O_SYNC, 0755)
-	syscall.Dup2(int(logFile.Fd()), 1)
-	syscall.Dup2(int(logFile.Fd()), 2)
+	// logFile, _ := os.OpenFile("/tmp/sshtunnel.log", os.O_WRONLY|os.O_CREATE|os.O_SYNC, 0755)
+	// syscall.Dup2(int(logFile.Fd()), 1)
+	// syscall.Dup2(int(logFile.Fd()), 2)
 
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, os.Interrupt, os.Kill, syscall.SIGTERM)

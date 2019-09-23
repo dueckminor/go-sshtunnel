@@ -11,7 +11,7 @@ import (
 	"github.com/dueckminor/go-sshtunnel/dnsproxy"
 	"github.com/dueckminor/go-sshtunnel/iptables"
 	"github.com/dueckminor/go-sshtunnel/logger"
-	"github.com/dueckminor/go-sshtunnel/sshforward"
+	"github.com/dueckminor/go-sshtunnel/sshdialer"
 )
 
 type SSHTunnel struct {
@@ -24,7 +24,7 @@ type SSHTunnel struct {
 	DNS        string
 }
 
-func handleConnection(forward *sshforward.SSHForward, conn *net.TCPConn) {
+func handleConnection(sshDialer *sshdialer.SSHDialer, conn *net.TCPConn) {
 	defer conn.Close()
 	ip, port, conn, err := iptables.GetOriginalDst(conn)
 	if err != nil {
@@ -33,7 +33,7 @@ func handleConnection(forward *sshforward.SSHForward, conn *net.TCPConn) {
 	}
 	remoteAddr := ip + ":" + strconv.FormatUint(uint64(port), 10)
 	logger.L.Println("Connecting to:", remoteAddr)
-	remoteConn, err := forward.Dial("tcp", remoteAddr)
+	remoteConn, err := sshDialer.Dial("tcp", remoteAddr)
 	if err != nil {
 		logger.L.Println("Failed to connect to original destination:", err)
 		return
@@ -102,10 +102,10 @@ func (tunnel *SSHTunnel) Start() (err error) {
 	err = redirectScript.Execute()
 
 	if err != nil {
-		panic(err)
+		//	panic(err)
 	}
 
-	forward, err := sshforward.NewSSHForward(tunnel.Host, tunnel.Port, tunnel.User, tunnel.PrivateKey, tunnel.Timeout)
+	sshDialer, err := sshdialer.NewSSHDialer(tunnel.Host, tunnel.Port, tunnel.User, tunnel.Timeout)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		return err
@@ -117,6 +117,6 @@ func (tunnel *SSHTunnel) Start() (err error) {
 			log.Fatalln(err)
 			continue
 		}
-		go handleConnection(forward, conn)
+		go handleConnection(sshDialer, conn)
 	}
 }

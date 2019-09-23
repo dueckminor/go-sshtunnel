@@ -2,9 +2,12 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/url"
 	"os"
+
+	"github.com/dueckminor/go-sshtunnel/sshdialer"
 
 	"github.com/dueckminor/go-sshtunnel/control"
 	"github.com/dueckminor/go-sshtunnel/daemon"
@@ -32,6 +35,37 @@ var sshTunnelDaemon = daemon.Daemon{
 	PIDFile: "/tmp/sshtunnel.pid",
 }
 
+type controller struct {
+	done    chan int
+	targets sshtunnel.Targets
+	sshDialer *sshdialer.SSHDialer
+}
+
+func (c *controller) Start() {
+	c.done = make(chan int)
+}
+
+func (c *controller) Health() (bool, error) {
+	return true, nil
+}
+
+func (c *controller) Stop() error {
+	c.done <- 0
+	return nil
+}
+
+func (c *controller) AddSSHKey(encodedKey string, passPhrase string) error {
+	return c.sshDialer.AddSSHKey(encodedKey, passPhrase)
+}
+
+func (c *controller) AddTarget(cidr string, tunnel string) error {
+	return c.targets.AddTarget(cidr, tunnel)
+}
+
+func (c *controller) GetConfigScript() (string, error) {
+	return "", nil
+}
+
 func run() {
 	kingpin.Parse()
 	if *showVersion {
@@ -39,26 +73,29 @@ func run() {
 		os.Exit(0)
 	}
 
-	control.Start()
+	ctrl := &controller{}
+	ctrl.Start()
+
+	go control.Start(ctrl)
 
 	tunnel := &sshtunnel.SSHTunnel{}
-	sshUrl, err := url.Parse("ssh://" + *sshServer)
+	sshURL, err := url.Parse("ssh://" + *sshServer)
 	if err != nil {
 		fmt.Printf("%q is not a valid ssh url: %v", *sshServer, err)
 		os.Exit(1)
 	}
 
-	if sshUrl.User == nil || sshUrl.User.Username() == "" {
+	if sshURL.User == nil || sshURL.User.Username() == "" {
 		tunnel.User = os.Getenv("USERNAME")
 	} else {
-		tunnel.User = sshUrl.User.Username()
+		tunnel.User = sshURL.User.Username()
 	}
 
 	tunnel.Port = "22"
-	if sshUrl.Port() != "" {
-		tunnel.Port = sshUrl.Port()
+	if sshURL.Port() != "" {
+		tunnel.Port = sshURL.Port()
 	}
-	tunnel.Host = sshUrl.Host
+	tunnel.Host = sshURL.Host
 	tunnel.PrivateKey = *privateKey
 	tunnel.Networks = make([]*net.IPNet, len(*networks))
 	tunnel.Timeout = *sshTimeout
@@ -74,9 +111,43 @@ func run() {
 		tunnel.Networks[idx] = network
 	}
 
-	tunnel.Start()
+	ctrl.sshDialer, err = sshdialer.NewSSHDialer(tunnel.Host, tunnel.Port, tunnel.User, tunnel.Timeout)
+	if err != nil {
+		panic(err)
+	}
+
+	go tunnel.Start()
+
+	rc := <-ctrl.done
+	os.Exit(rc)
 }
 
 func main() {
+	cmd := "status"
+	if len(os.Args) > 1 {
+		cmd = os.Args[1]
+	}
+
+	switch cmd {
+	case "status":
+		h, err := control.Client().Health()
+		fmt.Println(h, err)
+		return
+	case "stop":
+		control.Client().Stop()
+		return
+	case "add-ssh-key":
+		encodedKey := ""
+		if len(os.Args) > 2 {
+			body, err := ioutil.ReadFile(os.Args[2])
+			if err != nil {
+				panic(err)
+			}
+			encodedKey = string(body)
+			control.Client().AddSSHKey(encodedKey, "")
+		}
+		return
+	}
+
 	sshTunnelDaemon.Main(run)
 }
