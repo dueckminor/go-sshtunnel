@@ -15,7 +15,7 @@
             "host": "127.0.0.1",
             "program": "${workspaceRoot}/main.go",
             "env": {},
-            "args": ["--daemon","d055979@3.120.240.27"],
+            "args": ["daemon"],
             "showLog": true
         },
         {
@@ -29,6 +29,32 @@
             "program": "${workspaceRoot}/main.go",
             "env": {},
             "args": ["stop"],
+            "showLog": true
+        },
+        {
+            "name": "Launch - Add Key",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "remotePath": "",
+            "port": 2345,
+            "host": "127.0.0.1",
+            "program": "${workspaceRoot}/main.go",
+            "env": {},
+            "args": ["add-ssh-key", "${workspaceRoot}/tmp/id_rsa"],
+            "showLog": true
+        },
+        {
+            "name": "Launch - list-proxies",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "remotePath": "",
+            "port": 2345,
+            "host": "127.0.0.1",
+            "program": "${workspaceRoot}/main.go",
+            "env": {},
+            "args": ["list-proxies"],
             "showLog": true
         }
     ]

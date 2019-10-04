@@ -21,7 +21,7 @@ func (c clientAPI) Health() (healthy bool, err error) {
 	}
 	defer resp.Body.Close()
 
-	healthMessage := HealthMessage{}
+	healthMessage := Health{}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return false, err
@@ -31,6 +31,14 @@ func (c clientAPI) Health() (healthy bool, err error) {
 
 	fmt.Println(healthMessage)
 	return healthMessage.Healthy, err
+}
+
+func (c clientAPI) Status() (status Status, err error) {
+	err = c.GetJSON("/status", &status)
+	if err != nil {
+		return Status{}, err
+	}
+	return status, nil
 }
 
 func (c clientAPI) Stop() (err error) {
@@ -45,19 +53,40 @@ func (c clientAPI) Stop() (err error) {
 	return nil
 }
 
+func (c clientAPI) StartProxy(proxyType string, proxyParameter string) (proxyInfo Proxy, err error) {
+	err = c.PostJSON("/proxies", Proxy{
+		ProxyType:       proxyType,
+		ProxyParameters: proxyParameter,
+	}, &proxyInfo)
+	return proxyInfo, err
+}
+
+func (c clientAPI) ListProxies() (proxyInfos []Proxy, err error) {
+	err = c.GetJSON("/proxies", &proxyInfos)
+	return proxyInfos, err
+}
+
 func (c clientAPI) AddSSHKey(encodedKey string, passPhrase string) error {
-	return c.PostJSON("/keys", AddSSHKeyMessage{
+	return c.PostJSON("/ssh/keys", SSHKey{
 		EncodedKey: encodedKey,
 		PassPhrase: passPhrase,
 	}, nil)
 }
 
-func (c clientAPI) AddTarget(cidr string, tunnel string) error {
-	return nil
+func (c clientAPI) AddDialer(uri string) error {
+	return c.PostJSON("/ssh/targets", SSHTarget{
+		URI: uri,
+	}, nil)
 }
 
-func (c clientAPI) GetConfigScript() (string, error) {
-	return "", nil
+func (c clientAPI) ListRules() (rules []Rule, err error) {
+	err = c.GetJSON("/rules", &rules)
+	return rules, err
+}
+
+func (c clientAPI) AddRule(rule Rule) error {
+	err := c.PostJSON("/rules", rule, nil)
+	return err
 }
 
 func (c clientAPI) MakeURL(path string) (url string) {
@@ -71,7 +100,19 @@ func (c clientAPI) Get(path string) (resp *http.Response, err error) {
 	return c.httpClient.Get(c.MakeURL(path))
 }
 
-func (c clientAPI) PostJSON(path string, requestBody interface{}, responseBody *interface{}) error {
+func (c clientAPI) GetJSON(path string, responseBody interface{}) error {
+	req, err := http.NewRequest("GET", c.MakeURL(path), nil)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	return json.Unmarshal(body, responseBody)
+}
+
+func (c clientAPI) PostJSON(path string, requestBody interface{}, responseBody interface{}) error {
 	body, err := json.Marshal(requestBody)
 	if err != nil {
 		return err
