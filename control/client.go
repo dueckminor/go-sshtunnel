@@ -130,6 +130,8 @@ func (c clientAPI) PostJSON(path string, requestBody interface{}, responseBody i
 	return json.Unmarshal(body, responseBody)
 }
 
+// Client returns an implementation of the API interface which uses the
+// REST-API to talk with the server over /tmp/sshtunnel.sock
 func Client() API {
 	result := clientAPI{
 		httpClient: http.Client{

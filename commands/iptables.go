@@ -23,13 +23,13 @@ func (cmdIptablesScript) Execute(args ...string) error {
 		return err
 	}
 
-	tcpPort := 0
+	transparentPort := 0
 	dnsPort := 0
 
 	for _, proxy := range proxies {
 		switch proxy.ProxyType {
-		case "tcp":
-			tcpPort = proxy.ProxyPort
+		case "transparent":
+			transparentPort = proxy.ProxyPort
 		case "dns":
 			dnsPort = proxy.ProxyPort
 		}
@@ -46,7 +46,7 @@ sudo iptables -t nat -I PREROUTING 1 -j sshtunnel
 `)
 
 	for _, rule := range rules {
-		fmt.Printf("sudo iptables -t nat -A sshtunnel -j REDIRECT --dest %s -p tcp --to-ports %d\n", rule.CIDR, tcpPort)
+		fmt.Printf("sudo iptables -t nat -A sshtunnel -j REDIRECT --dest %s -p tcp --to-ports %d\n", rule.CIDR, transparentPort)
 	}
 
 	if dnsPort > 0 {

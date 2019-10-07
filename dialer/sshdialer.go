@@ -110,6 +110,7 @@ func (sshDialer *SSHDialer) Dial(network, addr string) (net.Conn, error) {
 			if err != nil {
 				return nil, err
 			}
+			// cSpell: ignore chans,reqs
 			c, chans, reqs, err := ssh.NewClientConn(conn, sshDialerAddress, sshDialer.config)
 			if err != nil {
 				return nil, err
@@ -141,7 +142,7 @@ type CallGroup struct {
 	id2call map[string]*call
 }
 
-// Do executes and returns the results of the given function, making
+// CallSynchronized executes and returns the results of the given function, making
 // sure that only one execution is in-flight for a given key at a
 // time. If a duplicate comes in, the duplicate caller waits for the
 // original to complete and receives the same results.

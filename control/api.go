@@ -1,5 +1,6 @@
 package control
 
+// API is the intrace of the REST API
 type API interface {
 	Health() (bool, error)
 	Status() (Status, error)

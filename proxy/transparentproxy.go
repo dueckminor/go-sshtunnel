@@ -13,17 +13,17 @@ import (
 	"github.com/dueckminor/go-sshtunnel/logger"
 )
 
-type tcpProxy struct {
+type transparentProxy struct {
 	Dialer dialer.Dialer
 	Port   int
 }
 
 func init() {
-	RegisterProxyFactory("tcp", newTCPProxy)
+	RegisterProxyFactory("transparent", newTransparentProxy)
 }
 
-func newTCPProxy(parameters string) (Proxy, error) {
-	proxy := &tcpProxy{}
+func newTransparentProxy(parameters string) (Proxy, error) {
+	proxy := &transparentProxy{}
 	var err error
 
 	proxy.Dialer = rules.GetDefaultRuleSet()
@@ -44,11 +44,11 @@ func newTCPProxy(parameters string) (Proxy, error) {
 	return proxy, nil
 }
 
-func (proxy *tcpProxy) GetPort() int {
+func (proxy *transparentProxy) GetPort() int {
 	return proxy.Port
 }
 
-func (proxy *tcpProxy) SetDialer(dialer dialer.Dialer) {
+func (proxy *transparentProxy) SetDialer(dialer dialer.Dialer) {
 	proxy.Dialer = dialer
 }
 
@@ -103,7 +103,7 @@ func forwardConnection(localConn, remoteConn net.Conn) (nSend, nReceived int64, 
 	return nSend, nReceived, err
 }
 
-func (proxy *tcpProxy) start(port int) (err error) {
+func (proxy *transparentProxy) start(port int) (err error) {
 	listener, port, err := createTCPListener(port)
 	if err != nil {
 		return err

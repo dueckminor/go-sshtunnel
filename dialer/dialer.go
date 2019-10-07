@@ -11,6 +11,7 @@ var (
 	dialers = make(map[string]Dialer)
 )
 
+// Dial uses the selected dialer to establish a network connection
 func Dial(dialerName, network, addr string) (net.Conn, error) {
 	if dialer, ok := dialers[dialerName]; ok {
 		return dialer.Dial(network, addr)
