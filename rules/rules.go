@@ -43,6 +43,12 @@ func Unmarshall(rule control.Rule) (Rule, error) {
 }
 
 func (rs *RuleSet) AddRule(rule Rule) error {
+	for i, r := range rs.Rules {
+		if r.IPNet.String() == rule.IPNet.String() {
+			rs.Rules[i] = rule
+			return nil
+		}
+	}
 	rs.Rules = append(rs.Rules, rule)
 	return nil
 }

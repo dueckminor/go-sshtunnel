@@ -1,3 +1,5 @@
+// +build linux
+
 package commands
 
 import (
@@ -13,6 +15,12 @@ func init() {
 type cmdIptablesScript struct{}
 
 func (cmdIptablesScript) Execute(args ...string) error {
+	fmt.Print(`#!/usr/bin/env bash
+set -e
+
+sudo iptables-save | grep -v sshtunnel | sudo iptables-restore
+`)
+
 	c := control.Client()
 	proxies, err := c.ListProxies()
 	if err != nil {
@@ -35,10 +43,7 @@ func (cmdIptablesScript) Execute(args ...string) error {
 		}
 	}
 
-	fmt.Print(`#!/usr/bin/env bash
-set -e
-
-sudo iptables-save | grep -v sshtunnel | sudo iptables-restore
+	fmt.Print(`
 sudo iptables -t nat -N sshtunnel
 sudo iptables -t nat -F sshtunnel
 sudo iptables -t nat -I OUTPUT 1 -j sshtunnel
