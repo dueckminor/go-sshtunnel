@@ -9,12 +9,14 @@ import (
 	"github.com/dueckminor/go-sshtunnel/rules"
 )
 
+// Server is the central object of sshtunnel
 type Server struct {
 	done      chan int
 	sshDialer *dialer.SSHDialer
 	proxies   []control.Proxy
 }
 
+// Initialize initializes the Server
 func (server *Server) Initialize() {
 	server.done = make(chan int)
 	server.sshDialer, _ = dialer.NewSSHDialer(5)
@@ -82,13 +84,14 @@ func (server *Server) ListRules() ([]control.Rule, error) {
 
 // AddRule implements control.API.AddRule
 func (server *Server) AddRule(rule control.Rule) error {
-	r, err := rules.Unmarshall(rule)
+	r, err := rules.UnMarshall(rule)
 	if err != nil {
 		return err
 	}
 	return rules.GetDefaultRuleSet().AddRule(r)
 }
 
+// Run starts the Server and waits until the Server stops
 func Run() {
 	savePID(pidFile, os.Getpid())
 	defer os.Remove(pidFile)

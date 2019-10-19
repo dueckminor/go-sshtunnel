@@ -5,4 +5,5 @@ import (
 	"os"
 )
 
-var L = log.New(os.Stdout, "sshuttle: ", log.Lshortfile|log.LstdFlags)
+// L is the global logger
+var L = log.New(os.Stdout, "sshtunnel: ", log.Lshortfile|log.LstdFlags)

@@ -8,11 +8,13 @@ import (
 	"github.com/dueckminor/go-sshtunnel/control"
 )
 
+// A Rule binds a CIDR range to a dialer
 type Rule struct {
 	IPNet  *net.IPNet
 	Dialer string
 }
 
+// A RuleSet is a named set of Rules
 type RuleSet struct {
 	Name  string
 	Rules []Rule
@@ -26,8 +28,8 @@ func Marshall(rule Rule) control.Rule {
 	}
 }
 
-// Unmarshall converts the wire-Format (JSON) to a Rule
-func Unmarshall(rule control.Rule) (Rule, error) {
+// UnMarshall converts the wire-Format (JSON) to a Rule
+func UnMarshall(rule control.Rule) (Rule, error) {
 	_, IPNet, err := net.ParseCIDR(rule.CIDR)
 
 	result := Rule{
@@ -42,6 +44,8 @@ func Unmarshall(rule control.Rule) (Rule, error) {
 	return result, err
 }
 
+// AddRule adds a single rule to a RuleSet. If the CIDR range is already
+// part if the RuleSet, the existing rule will be replaced
 func (rs *RuleSet) AddRule(rule Rule) error {
 	for i, r := range rs.Rules {
 		if r.IPNet.String() == rule.IPNet.String() {
@@ -53,6 +57,7 @@ func (rs *RuleSet) AddRule(rule Rule) error {
 	return nil
 }
 
+// ListRules returns all Rules
 func (rs *RuleSet) ListRules() (rules []Rule, err error) {
 	return rs.Rules, nil
 }
@@ -63,15 +68,17 @@ var (
 	}
 )
 
+// GetDefaultRuleSet returns the default RuleSet
 func GetDefaultRuleSet() *RuleSet {
 	return defaultRuleSet
 }
 
+// Dial uses the dialer of the first matching rule to establish a network connection
 func (rs *RuleSet) Dial(network, addr string) (net.Conn, error) {
-	ipaddr, err := net.ResolveTCPAddr(network, addr)
+	ipAddr, err := net.ResolveTCPAddr(network, addr)
 	if err == nil {
 		for _, rule := range rs.Rules {
-			if rule.IPNet.Contains(ipaddr.IP) {
+			if rule.IPNet.Contains(ipAddr.IP) {
 				return dialer.Dial(rule.Dialer, network, addr)
 			}
 		}

@@ -7,11 +7,13 @@ import (
 	"github.com/dueckminor/go-sshtunnel/dialer"
 )
 
+// Proxy is the generic interface for proxies
 type Proxy interface {
 	GetPort() int
 	SetDialer(dialer dialer.Dialer)
 }
 
+// NewProxy creates a new proxy
 func NewProxy(proxyType, proxyParameters string) (Proxy, error) {
 	if factory, ok := proxyFactories[proxyType]; ok {
 		return factory(proxyParameters)
@@ -24,6 +26,8 @@ type proxyFactory func(parameters string) (Proxy, error)
 
 var proxyFactories = make(map[string]proxyFactory)
 
+// RegisterProxyFactory is called by proxy implementations to make their
+// implementation available
 func RegisterProxyFactory(proxyType string, factory proxyFactory) {
 	proxyFactories[proxyType] = factory
 }

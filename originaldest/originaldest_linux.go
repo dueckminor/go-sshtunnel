@@ -1,5 +1,4 @@
 // +build linux
-
 package originaldest
 
 import (
@@ -12,16 +11,17 @@ import (
 
 const SoOriginalDst = 80
 
-func GetOriginalDst(clientConn *net.TCPConn) (string, uint16, *net.TCPConn, error) {
+// GetOriginalDst gets IP-Address and Port to which the client likes to connect
+func GetOriginalDst(clientConn *net.TCPConn) (ipv4 string, port uint16, newTCPConn *net.TCPConn, err error) {
 	if clientConn == nil {
-		err := errors.New("ERR: clientConn is nil")
+		err = errors.New("ERR: clientConn is nil")
 		return "", 0, nil, err
 	}
 
 	// test if the underlying fd is nil
 	remoteAddr := clientConn.RemoteAddr()
 	if remoteAddr == nil {
-		err := errors.New("ERR: clientConn.fd is nil")
+		err = errors.New("ERR: clientConn.fd is nil")
 		return "", 0, nil, err
 	}
 
@@ -50,7 +50,7 @@ func GetOriginalDst(clientConn *net.TCPConn) (string, uint16, *net.TCPConn, erro
 	if err != nil {
 		return "", 0, nil, err
 	}
-	var newTCPConn *net.TCPConn
+
 	if _, ok := newConn.(*net.TCPConn); ok {
 		newTCPConn = newConn.(*net.TCPConn)
 		clientConnFile.Close()
@@ -59,11 +59,11 @@ func GetOriginalDst(clientConn *net.TCPConn) (string, uint16, *net.TCPConn, erro
 		return "", 0, nil, err
 	}
 
-	ipv4 := strconv.FormatUint(uint64(addr.Multiaddr[4]), 10) + "." +
+	ipv4 = strconv.FormatUint(uint64(addr.Multiaddr[4]), 10) + "." +
 		strconv.FormatUint(uint64(addr.Multiaddr[5]), 10) + "." +
 		strconv.FormatUint(uint64(addr.Multiaddr[6]), 10) + "." +
 		strconv.FormatUint(uint64(addr.Multiaddr[7]), 10)
-	port := uint16(addr.Multiaddr[2])<<8 + uint16(addr.Multiaddr[3])
+	port = uint16(addr.Multiaddr[2])<<8 + uint16(addr.Multiaddr[3])
 
 	return ipv4, port, newTCPConn, nil
 }

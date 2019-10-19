@@ -11,6 +11,12 @@ import (
 	"unsafe"
 )
 
+// cSpell: ignore CFLAGS DIOCNATLOOK
+// cSpell: ignore pfvar pfioc
+// cSpell: ignore        sxport  saddr
+// cSpell: ignore rport rdxport rdaddr
+// cSpell: ignore rport  dxport  daddr
+
 // #cgo CFLAGS: -I./darwin/include
 // #include <sys/ioctl.h>
 // #define PRIVATE
@@ -18,7 +24,7 @@ import (
 // #undef PRIVATE
 import "C"
 
-var DEV_PATH = "/dev/pf"
+var devicePath = "/dev/pf"
 
 func ioctl(fd uintptr, cmd uintptr, ptr unsafe.Pointer) error {
 	_, _, err := syscall.Syscall(syscall.SYS_IOCTL, fd, cmd, uintptr(ptr))
@@ -28,13 +34,14 @@ func ioctl(fd uintptr, cmd uintptr, ptr unsafe.Pointer) error {
 	return nil
 }
 
+// GetOriginalDst gets IP-Address and Port to which the client likes to connect
 func GetOriginalDst(clientConn *net.TCPConn) (string, uint16, *net.TCPConn, error) {
 	client := clientConn.RemoteAddr()
 	local := clientConn.LocalAddr()
 
-	caddr, _ := client.(*net.TCPAddr)
-	laddr, _ := local.(*net.TCPAddr)
-	f, err := os.OpenFile(DEV_PATH, os.O_RDWR, 0644)
+	clientAddr, _ := client.(*net.TCPAddr)
+	localAddr, _ := local.(*net.TCPAddr)
+	f, err := os.OpenFile(devicePath, os.O_RDWR, 0644)
 	if err != nil {
 		return "", 0, clientConn, err
 	}
@@ -43,15 +50,15 @@ func GetOriginalDst(clientConn *net.TCPConn) (string, uint16, *net.TCPConn, erro
 	pnl.direction = C.PF_OUT
 	pnl.af = C.AF_INET
 	pnl.proto = C.IPPROTO_TCP
-	copy(pnl.saddr.pfa[0:4], caddr.IP)
-	cport := make([]byte, 2)
-	binary.BigEndian.PutUint16(cport, uint16(caddr.Port))
-	copy(pnl.sxport[:], cport)
+	copy(pnl.saddr.pfa[0:4], clientAddr.IP)
+	clientPort := make([]byte, 2)
+	binary.BigEndian.PutUint16(clientPort, uint16(clientAddr.Port))
+	copy(pnl.sxport[:], clientPort)
 
-	lport := make([]byte, 2)
-	copy(pnl.daddr.pfa[0:4], laddr.IP)
-	binary.BigEndian.PutUint16(lport, uint16(laddr.Port))
-	copy(pnl.dxport[:], lport)
+	localPort := make([]byte, 2)
+	copy(pnl.daddr.pfa[0:4], localAddr.IP)
+	binary.BigEndian.PutUint16(localPort, uint16(localAddr.Port))
+	copy(pnl.dxport[:], localPort)
 
 	// Do lookup to fullfill pnl.rdxport and pnl.rdaddr fields
 	if err := ioctl(fd, C.DIOCNATLOOK, unsafe.Pointer(pnl)); err != nil {

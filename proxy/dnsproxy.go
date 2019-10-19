@@ -50,11 +50,11 @@ func newDNSProxy(parameters string) (Proxy, error) {
 
 	proxy := &dnsProxy{}
 	proxy.Port = port
-	go ForwardDNS(listenAddr, "127.0.0.53:53")
+	go forwardDNS(listenAddr, "127.0.0.53:53")
 	return proxy, nil
 }
 
-func ForwardDNS(listenAddr, targetAddr string) error {
+func forwardDNS(listenAddr, targetAddr string) error {
 	fmt.Printf("Forward DNS requests to: %s\n", targetAddr)
 
 	dns.HandleFunc(".", func(w dns.ResponseWriter, r *dns.Msg) {
@@ -76,3 +76,5 @@ func ForwardDNS(listenAddr, targetAddr string) error {
 	server := &dns.Server{Addr: listenAddr, Net: "udp"}
 	return server.ListenAndServe()
 }
+
+// cSpell: ignore miekg

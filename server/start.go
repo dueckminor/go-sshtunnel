@@ -32,10 +32,12 @@ func start(verbose bool) {
 	savePID(pidFile, cmd.Process.Pid)
 }
 
+// Start starts the Server as a daemon process
 func Start() {
 	start(true)
 }
 
+// Stop stops a running Server daemon process
 func Stop() {
 	process, _ := getProcessFromPIDFile(pidFile)
 	if nil == process {
@@ -49,10 +51,9 @@ func Stop() {
 	if err != nil {
 		fmt.Printf("Unable to kill process ID [%v] with error %v \n", process.Pid, err)
 		return
-	} else {
-		fmt.Printf("Killed process ID [%v]\n", process.Pid)
-		return
 	}
+
+	fmt.Printf("Killed process ID [%v]\n", process.Pid)
 }
 
 func savePID(PIDFile string, pid int) {
