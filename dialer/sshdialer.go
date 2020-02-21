@@ -37,7 +37,7 @@ func NewSSHDialer(timeout int) (sshDialer *SSHDialer, err error) {
 	return sshDialer, nil
 }
 
-// ConvertSSHKey verifies that the encodedKey can be decoded and converts it
+// CheckSSHKey/ verifies that the encodedKey can be decoded and converts it
 // to a format that ssh.ParsePrivateKeyWithPassphrase can parse
 func CheckSSHKey(encodedKey string, passPhrase string) error {
 	_, err := sshkeys.ParseEncryptedPrivateKey([]byte(encodedKey), []byte(passPhrase))
@@ -83,7 +83,17 @@ func (sshDialer *SSHDialer) Dial(network, addr string) (net.Conn, error) {
 		}
 		// reconnect if required
 		log.Printf("dial %s failed: %s, reconnecting ssh server %s...\n", addr, err, sshDialer.address)
+
+		if _, ok := err.(*ssh.OpenChannelError); ok {
+			// we this kind of error, if the sshtunnel is up and running,
+			// but no connection to the destination addr could be established
+			// -> no need to dial again
+			return nil, err
+		}
 	}
+
+	// we are currently not connected to the ssh server
+	// -> dial again
 
 	returnValue, err := sshDialer.syncCalls.CallSynchronized(network+addr,
 		func() (interface{}, error) {

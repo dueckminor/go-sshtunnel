@@ -11,15 +11,13 @@ import (
 
 // Server is the central object of sshtunnel
 type Server struct {
-	done      chan int
-	sshDialer *dialer.SSHDialer
-	proxies   []control.Proxy
+	done    chan int
+	proxies []control.Proxy
 }
 
 // Initialize initializes the Server
 func (server *Server) Initialize() {
 	server.done = make(chan int)
-	server.sshDialer, _ = dialer.NewSSHDialer(5)
 }
 
 // Health implements control.API.Health
@@ -59,12 +57,12 @@ func (server *Server) ListProxies() ([]control.Proxy, error) {
 
 // AddSSHKey implements control.API.AddSSHKey
 func (server *Server) AddSSHKey(encodedKey string, passPhrase string) error {
-	return server.sshDialer.AddSSHKey(encodedKey, passPhrase)
+	return dialer.AddSSHKey(encodedKey, passPhrase)
 }
 
 // AddDialer implements control.API.AddDialer
 func (server *Server) AddDialer(uri string) error {
-	return server.sshDialer.AddDialer(uri)
+	return dialer.AddDialer("default", uri)
 }
 
 // ListRules implements control.API.ListRules
@@ -92,7 +90,18 @@ func (server *Server) AddRule(rule control.Rule) error {
 }
 
 // Run starts the Server and waits until the Server stops
-func Run() {
+func Run(parameters []string) {
+	logfile := ""
+	if len(parameters) == 2 && parameters[0] == "--logfile" {
+		logfile = parameters[1]
+		f, err := os.Create(logfile)
+		if err != nil {
+			panic(err)
+		}
+		os.Stderr = f
+		os.Stdout = f
+	}
+
 	savePID(pidFile, os.Getpid())
 	defer os.Remove(pidFile)
 

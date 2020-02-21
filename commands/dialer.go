@@ -4,18 +4,25 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/dueckminor/go-sshtunnel/control"
 )
 
 func init() {
 	RegisterCommand("add-dialer", cmdAddDialer{})
+	RegisterCommand("list-dialers", cmdListDialers{})
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 type cmdAddDialer struct{}
 
 func (cmdAddDialer) Execute(args ...string) error {
 	sshServer := args[0]
+	if strings.HasPrefix(sshServer, "socks5://") {
+		return control.Client().AddDialer(sshServer)
+	}
 
 	sshURL, err := url.Parse("ssh://" + sshServer)
 	if err != nil {
@@ -36,4 +43,12 @@ func (cmdAddDialer) Execute(args ...string) error {
 	fmt.Println("Adding dialer:", uri)
 
 	return control.Client().AddDialer(uri)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type cmdListDialers struct{}
+
+func (cmdListDialers) Execute(args ...string) error {
+	return nil
 }

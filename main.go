@@ -18,10 +18,10 @@ func main() {
 
 	switch cmd {
 	case "daemon":
-		server.Run()
+		server.Run(parameters)
 		return
 	case "start":
-		server.Start()
+		server.Start(parameters)
 		return
 	case "stop":
 		server.Stop()

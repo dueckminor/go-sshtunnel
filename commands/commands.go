@@ -3,6 +3,7 @@ package commands
 import (
 	"fmt"
 	"os"
+	"sort"
 )
 
 // Command is the interface for a Command
@@ -25,7 +26,14 @@ func usage(commandName string) {
 	} else {
 		fmt.Printf("Usage: %s [subcommand] [arguments...]\n", os.Args[0])
 		fmt.Println("where subcommand is one of:")
-		for commandName := range commandMap {
+
+		var commandNames []string
+		for k := range commandMap {
+			commandNames = append(commandNames, k)
+		}
+		sort.Strings(commandNames)
+
+		for _, commandName := range commandNames {
 			fmt.Println("-", commandName)
 		}
 	}

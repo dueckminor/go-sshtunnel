@@ -14,7 +14,7 @@ var (
 	pidFile = "/tmp/sshtunnel.pid"
 )
 
-func start(verbose bool) {
+func start(verbose bool, parameters []string) {
 	process, _ := getProcessFromPIDFile(pidFile)
 	if nil != process {
 		if verbose {
@@ -23,7 +23,10 @@ func start(verbose bool) {
 		return
 	}
 
-	cmd := exec.Command(os.Args[0], "daemon")
+	allParameters := []string{"daemon"}
+	allParameters = append(allParameters, parameters...)
+
+	cmd := exec.Command(os.Args[0], allParameters...)
 	cmd.Start()
 	if verbose {
 		fmt.Println("Daemon process ID is:", cmd.Process.Pid)
@@ -33,8 +36,8 @@ func start(verbose bool) {
 }
 
 // Start starts the Server as a daemon process
-func Start() {
-	start(true)
+func Start(parameters []string) {
+	start(true, parameters)
 }
 
 // Stop stops a running Server daemon process
