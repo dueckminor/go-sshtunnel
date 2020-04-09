@@ -1,5 +1,7 @@
 # go-sshtunnel
 
+![Go](https://github.com/dueckminor/go-sshtunnel/workflows/Go/badge.svg)
+
 This is a tiny ssh tunnel implemented in GO. It's main purpose is to establish an SSH connection from a Docker container to a jumpbox and redirect all outgoing TCP traffic over this connection.
 
 Currently only LINUX is supported
