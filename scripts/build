@@ -15,16 +15,6 @@ popd > /dev/null
 mkdir -p "${GOPATH}/bin"
 export PATH="${GOPATH}/bin:${PATH}"
 
-if [[ ! -f "${GOPATH}/bin/dep" ]]; then
-    echo "installing dep..."
-    curl https://raw.githubusercontent.com/golang/dep/master/install.sh | sh
-fi
-
-echo "getting dependencies..."
-
-cd "${DIR_ROOT}"
-dep ensure
-
 echo "compiling sshtunnel..."
-mkdir -p "${DIR_ROOT}/build/mypi-setup"
-GOOS=linux GOARCH=amd64 go build -o "${DIR_ROOT}/build/sshtunnel" *.go
+mkdir -p "${DIR_ROOT}/build"
+GOOS=linux GOARCH=amd64 go build -o "${DIR_ROOT}/build/sshtunnel" main.go
