@@ -12,6 +12,7 @@ import (
 	"github.com/dueckminor/go-sshtunnel/sshforward"
 )
 
+// SSHTunnel handles ssh connections
 type SSHTunnel struct {
 	user       string
 	host       string
@@ -73,6 +74,7 @@ func forwardConnection(localConn, remoteConn net.Conn) (nSend, nReceived int64, 
 	return nSend, nReceived, err
 }
 
+// Start starts an SSHTunnel on a random port on localhost
 func (tunnel *SSHTunnel) Start() (err error) {
 
 	addr, err := net.ResolveTCPAddr("tcp4", "127.0.0.1:0")

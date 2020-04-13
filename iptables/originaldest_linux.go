@@ -10,8 +10,9 @@ import (
 	"syscall"
 )
 
-const SoOriginalDst = 80
+const soOriginalDst = 80
 
+// GetOriginalDst returns the original destination address (+port)
 func GetOriginalDst(clientConn *net.TCPConn) (string, uint16, *net.TCPConn, error) {
 	if clientConn == nil {
 		err := errors.New("ERR: clientConn is nil")
@@ -32,16 +33,15 @@ func GetOriginalDst(clientConn *net.TCPConn) (string, uint16, *net.TCPConn, erro
 	clientConnFile, err := clientConn.File()
 	if err != nil {
 		return "", 0, nil, err
-	} else {
-		clientConn.Close()
 	}
+	clientConn.Close()
 
 	// Get original destination
 	// this is the only syscall in the Golang libs that I can find that returns 16 bytes
 	// Example result: &{Multiaddr:[2 0 31 144 206 190 36 45 0 0 0 0 0 0 0 0] Interface:0}
 	// port starts at the 3rd byte and is 2 bytes long (31 144 = port 8080)
 	// IPv4 address starts at the 5th byte, 4 bytes long (206 190 36 45)
-	addr, err := syscall.GetsockoptIPv6Mreq(int(clientConnFile.Fd()), syscall.IPPROTO_IP, SoOriginalDst)
+	addr, err := syscall.GetsockoptIPv6Mreq(int(clientConnFile.Fd()), syscall.IPPROTO_IP, soOriginalDst)
 	if err != nil {
 		return "", 0, nil, err
 	}
@@ -55,7 +55,7 @@ func GetOriginalDst(clientConn *net.TCPConn) (string, uint16, *net.TCPConn, erro
 		newTCPConn = newConn.(*net.TCPConn)
 		clientConnFile.Close()
 	} else {
-		err = errors.New(fmt.Sprintf("ERR: newConn is not a *net.TCPConn, instead it is: %T (%v)", newConn, newConn))
+		err = fmt.Errorf("ERR: newConn is not a *net.TCPConn, instead it is: %T (%v)", newConn, newConn)
 		return "", 0, nil, err
 	}
 

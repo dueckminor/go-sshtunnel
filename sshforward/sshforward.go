@@ -1,14 +1,16 @@
 package sshforward
 
 import (
-	"golang.org/x/crypto/ssh"
 	"io/ioutil"
 	"log"
 	"net"
 	"sync"
 	"time"
+
+	"golang.org/x/crypto/ssh"
 )
 
+// SSHForward is used to forward requests over SSH
 type SSHForward struct {
 	address   string // ip:port
 	config    *ssh.ClientConfig
@@ -17,6 +19,7 @@ type SSHForward struct {
 	lock      sync.RWMutex
 }
 
+// NewSSHForward creates an SSHForward object
 func NewSSHForward(server, port, user, privateKeyFile string, timeout int) (*SSHForward, error) {
 	forward := &SSHForward{
 		address:   server + ":" + port,
@@ -51,6 +54,7 @@ func NewSSHForward(server, port, user, privateKeyFile string, timeout int) (*SSH
 	return forward, nil
 }
 
+// Dial implements new.Dial over SSH
 func (forward *SSHForward) Dial(network, addr string) (net.Conn, error) {
 	forward.lock.RLock()
 	cli := forward.client
@@ -87,13 +91,14 @@ type call struct {
 	err         error
 }
 
+// CallGroup is used to ensure that an initialization is called exactly once
 type CallGroup struct {
 	mutex   sync.Mutex
 	id2call map[string]*call
 }
 
-// Do executes and returns the results of the given function, making
-// sure that only one execution is in-flight for a given key at a
+// CallSynchronized executes and returns the results of the given function,
+// making sure that only one execution is in-flight for a given key at a
 // time. If a duplicate comes in, the duplicate caller waits for the
 // original to complete and receives the same results.
 func (group *CallGroup) CallSynchronized(key string, callMe func() (interface{}, error)) (interface{}, error) {

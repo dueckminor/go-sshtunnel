@@ -8,6 +8,8 @@ import (
 	"strconv"
 )
 
+// RedirectScript is used to construct an script which will do the required
+// iptables calls
 type RedirectScript struct {
 	script string
 	table  string

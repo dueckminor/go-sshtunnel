@@ -26,6 +26,7 @@ var (
 	date    = "unknown"
 )
 
+// L is the logger
 var L = log.New(os.Stdout, "sshuttle: ", log.Lshortfile|log.LstdFlags)
 
 func main() {
