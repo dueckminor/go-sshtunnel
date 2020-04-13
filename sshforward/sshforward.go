@@ -19,7 +19,7 @@ type SSHForward struct {
 
 func NewSSHForward(server, port, user, privateKeyFile string, timeout int) (*SSHForward, error) {
 	forward := &SSHForward{
-		address:   server+":"+port,
+		address:   server + ":" + port,
 		config:    &ssh.ClientConfig{User: user},
 		client:    nil,
 		syncCalls: CallGroup{},
@@ -42,7 +42,7 @@ func NewSSHForward(server, port, user, privateKeyFile string, timeout int) (*SSH
 		return nil
 	}
 
-	forward.client, err = ssh.Dial("tcp", forward.address, forward.config )
+	forward.client, err = ssh.Dial("tcp", forward.address, forward.config)
 	if err != nil {
 		log.Printf("ssh connection failed:%v", err)
 		return nil, err
@@ -80,7 +80,6 @@ func (forward *SSHForward) Dial(network, addr string) (net.Conn, error) {
 
 	return cli.Dial(network, addr)
 }
-
 
 type call struct {
 	waitGroup   sync.WaitGroup
