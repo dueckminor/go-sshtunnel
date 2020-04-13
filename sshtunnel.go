@@ -38,7 +38,9 @@ func handleConnection(forward *sshforward.SSHForward, conn *net.TCPConn) {
 		return
 	}
 	nSend, nReceived, err := forwardConnection(conn, remoteConn)
-
+	if err != nil {
+		L.Println("Got error:", err)
+	}
 	L.Println("Send bytes:", nSend)
 	L.Println("Received bytes:", nReceived)
 }
