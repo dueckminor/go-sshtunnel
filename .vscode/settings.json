@@ -1,0 +1,17 @@
+{
+    "cSpell.words": [
+        "bcrypt",
+        "dport",
+        "dueckminor",
+        "gonic",
+        "iptables",
+        "manifoldco",
+        "pbkdf",
+        "scaleft"
+    ],
+    "cSpell.ignorePaths": [
+        "vendor",
+        "tmp",
+        "include"
+    ]
+}
