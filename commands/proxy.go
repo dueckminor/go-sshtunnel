@@ -36,13 +36,13 @@ func (cmdListProxies) Execute(args ...string) error {
 	}
 
 	if len(proxies) == 0 {
-		fmt.Println("no proxies started")
+		fmt.Println("proxies: []")
 		return nil
 	}
 
-	fmt.Println("the following proxies are running:")
+	fmt.Println("proxies:")
 	for _, proxy := range proxies {
-		fmt.Printf("- %s (port: %d)\n", proxy.ProxyType, proxy.ProxyPort)
+		fmt.Printf("  - type: %s\n    port: %d\n", proxy.ProxyType, proxy.ProxyPort)
 	}
 
 	return err

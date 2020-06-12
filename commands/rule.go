@@ -31,8 +31,13 @@ func (cmd *cmdListRules) Execute(args ...string) error {
 	if err != nil {
 		return err
 	}
+	if len(rules) == 0 {
+		fmt.Println("rules: []")
+	}
+	fmt.Println("rules:")
 	for _, rule := range rules {
-		fmt.Println(rule.CIDR)
+		fmt.Printf("  - cidr: %s\n", rule.CIDR)
+		fmt.Printf("    dialer: %s\n", rule.Dialer)
 	}
 	return nil
 }

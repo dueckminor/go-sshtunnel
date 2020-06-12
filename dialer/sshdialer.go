@@ -28,7 +28,7 @@ func NewSSHDialer(timeout int) (sshDialer *SSHDialer, err error) {
 		syncCalls: CallGroup{},
 		lock:      sync.RWMutex{}}
 
-	dialers["default"] = sshDialer
+	//dialers["default"] = sshDialer
 
 	sshDialer.config.Timeout = time.Duration(timeout) * time.Second
 	sshDialer.config.HostKeyCallback = func(hostname string, remote net.Addr, key ssh.PublicKey) error {

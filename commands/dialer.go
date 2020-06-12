@@ -50,5 +50,18 @@ func (cmdAddDialer) Execute(args ...string) error {
 type cmdListDialers struct{}
 
 func (cmdListDialers) Execute(args ...string) error {
+	dialers, err := control.Client().ListDialers()
+	if err != nil {
+		return err
+	}
+	if len(dialers) == 0 {
+		fmt.Println("dialers: []")
+	}
+	fmt.Println("dialers:")
+	for _, dialer := range dialers {
+		fmt.Printf("  - name: %s\n", dialer.Name)
+		fmt.Printf("    type: %s\n", dialer.Type)
+		fmt.Printf("    destination: %s\n", dialer.Destination)
+	}
 	return nil
 }

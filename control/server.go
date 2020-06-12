@@ -64,7 +64,7 @@ func (s server) PostKeys(c *gin.Context) {
 	}
 }
 
-func (s server) PostSSHTargets(c *gin.Context) {
+func (s server) PostDialers(c *gin.Context) {
 	request := SSHTarget{}
 	err := c.BindJSON(&request)
 	if err != nil {
@@ -74,6 +74,14 @@ func (s server) PostSSHTargets(c *gin.Context) {
 	if err != nil {
 		return
 	}
+}
+
+func (s server) GetDialers(c *gin.Context) {
+	response, err := s.impl.ListDialers()
+	if err != nil {
+		return
+	}
+	c.AbortWithStatusJSON(http.StatusOK, response)
 }
 
 func (s server) GetState(c *gin.Context) {
@@ -120,7 +128,8 @@ func Start(impl API) {
 	r.GET("/proxies", s.GetProxies)
 	r.POST("/proxies", s.PostProxies)
 	r.POST("/ssh/keys", s.PostKeys)
-	r.POST("/ssh/targets", s.PostSSHTargets)
+	r.POST("/dialers", s.PostDialers)
+	r.GET("/dialers", s.GetDialers)
 	r.GET("/state", s.GetState)
 	r.PUT("/state", s.PutState)
 	r.POST("/targets", s.PostTargets)

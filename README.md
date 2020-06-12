@@ -20,19 +20,33 @@ requests from local clients.
 
 #### TCP-Proxy (Linux only)
 
+The TCP-Proxy listens on a TCP port and allows to forward requests
+which have been redirect to this port using the `iptables` feature `--to-ports`.
+
 ```bash
-sshtunnel start-proxy tcp
+sshtunnel start-proxy tcp [<port>]
+```
+
+If no port is specified, a random (unused) port will be used.
+
+To do the `iptables` configuration, you have to execute the following command:
+
+```bash
+sh <(sshtunnel iptables-script)
 ```
 
 #### Socks5-Proxy
 
 ```bash
-sshtunnel start-proxy socks5
+sshtunnel start-proxy socks5 [<port>]
 ```
+
+If no port is specified, a random (unused) port will be used.
 
 #### DNS-Proxy
 
-Listen on a local UDP port and forward DNS requests over TCP to a target address
+Listen on a local UDP port and forward DNS requests over TCP to a target address. This allows forwarding of DNS requests via the tunnel.
+As the tunnel itself only supports TCP, sshtunnel translates from UDP to TCP.
 
 ```bash
 sshtunnel start-proxy dns --target=127.0.0.53:53
@@ -42,6 +56,21 @@ sshtunnel start-proxy dns --target=127.0.0.53:53
 
 Rules are used to select which dialer has to be used for a target address.
 
+```bash
+sshtunnel add-rule <ip-address/network>
+```
+
 ## Dialers
 
 Finally the dialers forwards the requests (via SSH) to its destination.
+
+```bash
+sshtunnel add-ssh-key <ssh_key_file>
+sshtunnel add-dialer <username>@<hostname>
+```
+
+It's also possible to use an existing socks5 proxy to establish connections:
+
+```bash
+sshtunnel add-dialer socks5://<hostname>:<port>
+```

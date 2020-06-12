@@ -65,6 +65,20 @@ func (server *Server) AddDialer(uri string) error {
 	return dialer.AddDialer("default", uri)
 }
 
+func (server *Server) ListDialers() (dialers []control.Dialer, err error) {
+	dialerList, err := dialer.ListDialers()
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]control.Dialer, len(dialerList), len(dialerList))
+	for i, d := range dialerList {
+		result[i], _ = dialer.Marshall(d)
+	}
+
+	return result, nil
+}
+
 // ListRules implements control.API.ListRules
 func (server *Server) ListRules() ([]control.Rule, error) {
 	ruleList, err := rules.GetDefaultRuleSet().ListRules()

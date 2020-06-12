@@ -74,9 +74,14 @@ func (c clientAPI) AddSSHKey(encodedKey string, passPhrase string) error {
 }
 
 func (c clientAPI) AddDialer(uri string) error {
-	return c.PostJSON("/ssh/targets", SSHTarget{
+	return c.PostJSON("/dialers", SSHTarget{
 		URI: uri,
 	}, nil)
+}
+
+func (c clientAPI) ListDialers() (dialers []Dialer, err error) {
+	err = c.GetJSON("/dialers", &dialers)
+	return dialers, err
 }
 
 func (c clientAPI) ListRules() (rules []Rule, err error) {

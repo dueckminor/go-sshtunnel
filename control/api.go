@@ -12,6 +12,8 @@ type API interface {
 	ListProxies() ([]Proxy, error)
 	//// Dialer ////
 	AddDialer(uri string) error
+	ListDialers() ([]Dialer, error)
+
 	//// Rules ////
 	ListRules() ([]Rule, error)
 	AddRule(rule Rule) error
@@ -34,7 +36,7 @@ type SSHKey struct {
 	PassPhrase string `json:"passPhrase"`
 }
 
-// SSHTarget is the transport format of the POST /ssh/targets endpoint
+// SSHTarget is the transport format of the POST /dialers endpoint
 type SSHTarget struct {
 	URI string `json:"uri"`
 }
@@ -50,4 +52,11 @@ type Proxy struct {
 type Rule struct {
 	CIDR   string `json:"cidr"`
 	Dialer string `json:"dialer"`
+}
+
+// Dialer defines a dialer
+type Dialer struct {
+	Name        string `json:"name"`
+	Type        string `json:"type"`
+	Destination string `json:"destination"`
 }
