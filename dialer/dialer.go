@@ -32,19 +32,23 @@ func Dial(dialerName, network, addr string) (net.Conn, error) {
 }
 
 func AddSSHKey(encodedKey string, passPhrase string) error {
-	makeSSHDialer()
-	return sshDialer.AddSSHKey(encodedKey, passPhrase)
+	return makeSSHDialer().AddSSHKey(encodedKey, passPhrase)
 }
 
-func makeSSHDialer() {
+func makeSSHDialer() *SSHDialer {
 	if sshDialer == nil {
 		sshDialer, _ = NewSSHDialer(5)
 		info := DialerInfo{impl: sshDialer}
 		info.Name = "default"
 		info.Type = "ssh"
 		info.Destination = "..."
-		dialers["default"] = info
+		if _, ok := dialers["default"]; ok {
+			dialers["ssh"] = info
+		} else {
+			dialers["default"] = info
+		}
 	}
+	return sshDialer
 }
 
 func AddDialer(dialerName, uri string) (err error) {
