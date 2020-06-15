@@ -44,7 +44,8 @@ func (cmdAddSSHKey) Execute(args ...string) error {
 			}
 
 			if !strings.HasPrefix(err.Error(), "bcrypt_pbkdf:") &&
-				err.Error() != "sshkeys: Invalid Passphrase" {
+				err.Error() != "sshkeys: Invalid Passphrase" &&
+				err.Error() != "ssh: this private key is passphrase protected" {
 				panic(err)
 			}
 

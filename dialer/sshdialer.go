@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/scaleft/sshkeys"
+	"github.com/ScaleFT/sshkeys"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -37,15 +37,23 @@ func NewSSHDialer(timeout int) (sshDialer *SSHDialer, err error) {
 	return sshDialer, nil
 }
 
+func passPhraseToBuffer(passPhrase string) []byte {
+	if passPhrase == "" {
+		return nil
+	} else {
+		return []byte(passPhrase)
+	}
+}
+
 // CheckSSHKey/ verifies that the encodedKey can be decoded and converts it
 // to a format that ssh.ParsePrivateKeyWithPassphrase can parse
 func CheckSSHKey(encodedKey string, passPhrase string) error {
-	_, err := sshkeys.ParseEncryptedPrivateKey([]byte(encodedKey), []byte(passPhrase))
+	_, err := sshkeys.ParseEncryptedPrivateKey([]byte(encodedKey), passPhraseToBuffer(passPhrase))
 	return err
 }
 
 func (sshDialer *SSHDialer) AddSSHKey(encodedKey string, passPhrase string) error {
-	signer, err := sshkeys.ParseEncryptedPrivateKey([]byte(encodedKey), []byte(passPhrase))
+	signer, err := sshkeys.ParseEncryptedPrivateKey([]byte(encodedKey), passPhraseToBuffer(passPhrase))
 	if err != nil {
 		log.Printf("ParsePrivateKey failed:%s\n", err)
 		return err
