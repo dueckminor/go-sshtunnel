@@ -82,7 +82,7 @@ To create a release, you just have to tag a commit with a tag starting with
 
 ```bash
 > git tag v1.0-beta4
-> pit push origin v1.0-beta4
+> git push origin v1.0-beta4
 ```
 
 Yow will find the released binaries some minutes later on the [Releases](https://github.com/dueckminor/go-sshtunnel/releases) page.
