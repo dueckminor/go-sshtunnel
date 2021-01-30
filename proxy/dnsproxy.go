@@ -3,6 +3,7 @@ package proxy
 import (
 	"fmt"
 	"net"
+	"os"
 
 	"github.com/dueckminor/go-sshtunnel/dialer"
 	"github.com/miekg/dns"
@@ -40,7 +41,27 @@ func getFreeUDPPort() (int, error) {
 	return l.LocalAddr().(*net.UDPAddr).Port, nil
 }
 
+func makeTargetAddr(parameters string) (target string, err error) {
+	host, port, err := net.SplitHostPort(parameters)
+	if (err != nil) && parameters != "" {
+		return "", err
+	}
+	if host == "" {
+		host = "127.0.0.53"
+	}
+	if port == "" {
+		port = "53"
+	}
+	return host + ":" + port, nil
+}
+
 func newDNSProxy(parameters string) (Proxy, error) {
+	target, err := makeTargetAddr(parameters)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Fprintln(os.Stderr, "newDNSProxy:", target)
 	port, err := getFreeUDPPort()
 	if err != nil {
 		return nil, err
@@ -50,7 +71,7 @@ func newDNSProxy(parameters string) (Proxy, error) {
 
 	proxy := &dnsProxy{}
 	proxy.Port = port
-	go forwardDNS(listenAddr, "127.0.0.53:53")
+	go forwardDNS(listenAddr, target)
 	return proxy, nil
 }
 
@@ -62,14 +83,14 @@ func forwardDNS(listenAddr, targetAddr string) error {
 		case dns.OpcodeQuery:
 			dnsClient := new(dns.Client)
 			dnsClient.Net = "tcp"
-			// fmt.Println("----- REQUEST -----")
-			// fmt.Println(r)
+			fmt.Println("----- REQUEST -----")
+			fmt.Println(r)
 			response, _, err := dnsClient.Exchange(r, targetAddr)
 			if err != nil {
 				fmt.Println(err)
 			}
-			// fmt.Println("----- RESPONSE -----")
-			// fmt.Println(response)
+			fmt.Println("----- RESPONSE -----")
+			fmt.Println(response)
 			w.WriteMsg(response)
 		}
 	})
