@@ -4,17 +4,6 @@ set -e
 
 DIR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.."; pwd)"
 
-pushd "${GOPATH}/src/github.com/dueckminor/go-sshtunnel" > /dev/null
-  if [[ "$(pwd)" != "${DIR_ROOT}" ]]; then
-    echo "Please checkout your sources here:"
-    echo "  $(pwd)"
-    exit 1
-  fi
-popd > /dev/null
-
-mkdir -p "${GOPATH}/bin"
-export PATH="${GOPATH}/bin:${PATH}"
-
 echo "compiling sshtunnel..."
 mkdir -p "${DIR_ROOT}/build"
 GOOS=linux GOARCH=amd64 go build -o "${DIR_ROOT}/build/sshtunnel" main.go
