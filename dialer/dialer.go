@@ -70,7 +70,9 @@ func AddDialer(dialerName, uri string) (err error) {
 	}
 
 	makeSSHDialer()
-	sshDialer.AddDialer(uri)
+	for _, u := range strings.Split(uri, ",") {
+		sshDialer.AddDialer(u)
+	}
 
 	info := DialerInfo{impl: sshDialer}
 	info.Name = dialerName

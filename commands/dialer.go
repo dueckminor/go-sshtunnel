@@ -24,22 +24,30 @@ func (cmdAddDialer) Execute(args ...string) error {
 		return control.Client().AddDialer(sshServer)
 	}
 
-	sshURL, err := url.Parse("ssh://" + sshServer)
-	if err != nil {
-		fmt.Printf("%s is not a valid ssh url: %v", sshServer, err)
-		os.Exit(1)
-	}
+	var uris []string
 
-	if sshURL.User == nil || sshURL.User.Username() == "" {
-		username := os.Getenv("USERNAME")
-		if username == "" {
-			username = os.Getenv("LOGNAME")
+	for _, sshsshServerPart := range strings.Split(sshServer, ",") {
+		if !strings.Contains(sshsshServerPart, "://") {
+			sshsshServerPart = "ssh://" + sshsshServerPart
 		}
-		sshURL.User = url.User(username)
+		sshURL, err := url.Parse(sshsshServerPart)
+		if err != nil {
+			fmt.Printf("%s is not a valid ssh url: %v", sshServer, err)
+			os.Exit(1)
+		}
+
+		if sshURL.User == nil || sshURL.User.Username() == "" {
+			username := os.Getenv("USERNAME")
+			if username == "" {
+				username = os.Getenv("LOGNAME")
+			}
+			sshURL.User = url.User(username)
+		}
+
+		uris = append(uris, sshURL.String())
 	}
 
-	uri := sshURL.String()
-
+	uri := strings.Join(uris, ",")
 	fmt.Println("Adding dialer:", uri)
 
 	return control.Client().AddDialer(uri)

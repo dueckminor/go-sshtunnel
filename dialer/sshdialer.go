@@ -10,11 +10,17 @@ import (
 	"time"
 
 	"github.com/ScaleFT/sshkeys"
+	"github.com/dueckminor/go-sshtunnel/logger"
 	"golang.org/x/crypto/ssh"
 )
 
+type SSHAddress struct {
+	user string
+	host string
+}
+
 type SSHDialer struct {
-	address   string // ip:port
+	addresses []SSHAddress // ip:port
 	config    *ssh.ClientConfig
 	client    *ssh.Client
 	syncCalls CallGroup
@@ -64,17 +70,31 @@ func (sshDialer *SSHDialer) AddSSHKey(encodedKey string, passPhrase string) erro
 }
 
 func (sshDialer *SSHDialer) AddDialer(uri string) error {
+	logger.L.Printf("uri: %s\n", uri)
+	if !strings.Contains(uri, "://") {
+		uri = "ssh://" + uri
+	}
+
 	sshURL, err := url.Parse(uri)
 	if err != nil || sshURL.Scheme != "ssh" {
 		return fmt.Errorf("'%s' is not a valid ssh url", uri)
 	}
+
+	address := SSHAddress{}
+	address.user = sshURL.User.Username()
+	address.host = sshURL.Host
 	if sshURL.Port() == "" {
-		sshDialer.address = sshURL.Host + ":22"
-	} else {
-		sshDialer.address = sshURL.Host
+		address.host += ":22"
 	}
 
-	sshDialer.config.User = sshURL.User.Username()
+	if len(sshDialer.config.User) == 0 {
+		sshDialer.config.User = address.user
+	}
+
+	logger.L.Printf("address.user: %s\n", address.user)
+	logger.L.Printf("address.host: %s\n", address.host)
+
+	sshDialer.addresses = append(sshDialer.addresses, address)
 
 	return nil
 }
@@ -90,7 +110,7 @@ func (sshDialer *SSHDialer) Dial(network, addr string) (net.Conn, error) {
 			return c, nil
 		}
 		// reconnect if required
-		log.Printf("dial %s failed: %s, reconnecting ssh server %s...\n", addr, err, sshDialer.address)
+		log.Printf("dial %s failed: %s, reconnecting ssh server %v...\n", addr, err, sshDialer.addresses)
 
 		if _, ok := err.(*ssh.OpenChannelError); ok {
 			// we this kind of error, if the sshtunnel is up and running,
@@ -102,6 +122,7 @@ func (sshDialer *SSHDialer) Dial(network, addr string) (net.Conn, error) {
 
 	// we are currently not connected to the ssh server
 	// -> dial again
+	var sshHost string
 
 	returnValue, err := sshDialer.syncCalls.CallSynchronized(network+addr,
 		func() (interface{}, error) {
@@ -111,32 +132,39 @@ func (sshDialer *SSHDialer) Dial(network, addr string) (net.Conn, error) {
 			var conn net.Conn
 			var err error
 
-			sshDialerAddressParts := strings.Split(sshDialer.address, ":")
-			sshDialerPort := "22"
-			sshDialerAddress := sshDialerAddressParts[0]
-			if len(sshDialerAddressParts) > 1 {
-				sshDialerPort = sshDialerAddressParts[1]
-			}
+			cfg := new(ssh.ClientConfig)
+			*cfg = *sshDialer.config
 
-			for _, sshDialerHost := range strings.Split(sshDialerAddressParts[0], ",") {
-				sshDialerAddress = sshDialerHost + ":" + sshDialerPort
-				conn, err = net.DialTimeout("tcp", sshDialerAddress, sshDialer.config.Timeout)
-				if err == nil {
-					break
+			for _, addr := range sshDialer.addresses {
+				if len(addr.user) > 0 {
+					cfg.User = addr.user
 				}
+
+				sshHost = addr.host
+
+				logger.L.Printf("Trying to connect to %s@%s\n", cfg.User, sshHost)
+
+				conn, err = net.DialTimeout("tcp", addr.host, sshDialer.config.Timeout)
+				if err != nil {
+					logger.L.Printf("Connect to %s@%s failed. Reason: %v\n", cfg.User, sshHost, err)
+					continue
+				}
+				// cSpell: ignore chans,reqs
+				var c ssh.Conn
+				var chans <-chan ssh.NewChannel
+				var reqs <-chan *ssh.Request
+				c, chans, reqs, err = ssh.NewClientConn(conn, sshHost, cfg)
+				if err != nil {
+					logger.L.Printf("Handshake with %s@%s failed. Reason: %v\n", cfg.User, sshHost, err)
+					continue
+				}
+				logger.L.Printf("Handshake with %s@%s succeeded\n", cfg.User, sshHost)
+				return ssh.NewClient(c, chans, reqs), nil
 			}
-			if err != nil {
-				return nil, err
-			}
-			// cSpell: ignore chans,reqs
-			c, chans, reqs, err := ssh.NewClientConn(conn, sshDialerAddress, sshDialer.config)
-			if err != nil {
-				return nil, err
-			}
-			return ssh.NewClient(c, chans, reqs), nil
+			return nil, err
 		})
+
 	if err != nil {
-		log.Printf("connect ssh server %s failed: %s\n", sshDialer.address, err)
 		return nil, err
 	}
 

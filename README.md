@@ -66,7 +66,16 @@ Finally the dialers forwards the requests (via SSH) to its destination.
 
 ```bash
 sshtunnel add-ssh-key <ssh_key_file>
-sshtunnel add-dialer <username>@<hostname>
+sshtunnel add-dialer [<username>@]<hostname>
+```
+
+It's allowed to add multiple ssh dialers:
+
+```bash
+sshtunnel add-dialer [<username>@]<hostname>,[<username2>@]<hostname2>
+# or
+sshtunnel add-dialer [<username>@]<hostname>
+sshtunnel add-dialer [<username2>@]<hostname2>
 ```
 
 It's also possible to use an existing socks5 proxy to establish connections:
