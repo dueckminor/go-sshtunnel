@@ -56,21 +56,27 @@ func makeTargetAddr(parameters string) (target string, err error) {
 }
 
 func newDNSProxy(parameters string) (Proxy, error) {
+	port, err := getFreeUDPPort()
+	if err != nil {
+		return nil, err
+	}
+
+	return NewDNSProxy(nil, port, parameters)
+}
+
+func NewDNSProxy(dialer dialer.Dialer, port int, parameters string) (Proxy, error) {
 	target, err := makeTargetAddr(parameters)
 	if err != nil {
 		return nil, err
 	}
 
 	fmt.Fprintln(os.Stderr, "newDNSProxy:", target)
-	port, err := getFreeUDPPort()
-	if err != nil {
-		return nil, err
-	}
 
 	listenAddr := fmt.Sprintf("127.0.0.1:%d", port)
 
 	proxy := &dnsProxy{}
 	proxy.Port = port
+	proxy.Dialer = dialer
 	go forwardDNS(listenAddr, target)
 	return proxy, nil
 }
@@ -79,6 +85,11 @@ func forwardDNS(listenAddr, targetAddr string) error {
 	fmt.Printf("Forward DNS requests to: %s\n", targetAddr)
 
 	dns.HandleFunc(".", func(w dns.ResponseWriter, r *dns.Msg) {
+		defer func() {
+			if err := recover(); err != nil {
+				fmt.Println("panic occurred:", err)
+			}
+		}()
 		switch r.Opcode {
 		case dns.OpcodeQuery:
 			dnsClient := new(dns.Client)
@@ -95,7 +106,11 @@ func forwardDNS(listenAddr, targetAddr string) error {
 		}
 	})
 	server := &dns.Server{Addr: listenAddr, Net: "udp"}
-	return server.ListenAndServe()
+	err := server.ListenAndServe()
+	if err != nil {
+		panic(err)
+	}
+	return nil
 }
 
 // cSpell: ignore miekg

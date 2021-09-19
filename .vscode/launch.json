@@ -56,6 +56,16 @@
             "env": {},
             "args": ["list-proxies"],
             "showLog": true
+        },
+        {
+            "name": "Launch - dnstest",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceRoot}/test/cmd/dns/dnstest.go",
+            "env": {},
+            "args": [],
+            "showLog": true
         }
     ]
 }
