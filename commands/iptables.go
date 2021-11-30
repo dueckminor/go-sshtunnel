@@ -1,3 +1,4 @@
+//go:build linux
 // +build linux
 
 package commands
@@ -48,14 +49,16 @@ sudo iptables -t nat -N sshtunnel
 sudo iptables -t nat -F sshtunnel
 sudo iptables -t nat -I OUTPUT 1 -j sshtunnel
 sudo iptables -t nat -I PREROUTING 1 -j sshtunnel
-`)
+	`)
 
 	for _, rule := range rules {
 		fmt.Printf("sudo iptables -t nat -A sshtunnel -j REDIRECT --dest %s -p tcp --to-ports %d\n", rule.CIDR, transparentPort)
+		fmt.Printf("sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dest %s -j REDIRECT --to-ports %d\n", rule.CIDR, transparentPort)
 	}
 
 	if dnsPort > 0 {
 		fmt.Printf("sudo iptables -t nat -A sshtunnel -p udp --dport 53 -j REDIRECT --to-ports %d\n", dnsPort)
+		fmt.Printf("sudo iptables -t nat -A PREROUTING -i eth0 -p udp --dport 53 -j REDIRECT --to-ports %d\n", dnsPort)
 	}
 
 	return nil
