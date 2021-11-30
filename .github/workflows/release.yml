@@ -70,6 +70,6 @@ jobs:
         with:
           context: ./
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/arm64,linux/amd64
           file: ./docker/sshtunnel/Dockerfile
           tags: dueckminor/sshtunnel:latest
