@@ -1,5 +1,6 @@
 **/debug
 go-sshtunnel
 build/**
+build-arm64/**
 tmp/**
 vendor/**

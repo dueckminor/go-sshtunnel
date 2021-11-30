@@ -7,3 +7,5 @@ DIR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.."; pwd)"
 echo "compiling sshtunnel..."
 mkdir -p "${DIR_ROOT}/build"
 GOOS=linux GOARCH=amd64 go build -o "${DIR_ROOT}/build/sshtunnel" main.go
+mkdir -p "${DIR_ROOT}/build-arm64"
+GOOS=linux GOARCH=arm64 go build -o "${DIR_ROOT}/build-arm64/sshtunnel" main.go
