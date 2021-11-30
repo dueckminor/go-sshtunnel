@@ -72,7 +72,7 @@ func NewDNSProxy(dialer dialer.Dialer, port int, parameters string) (Proxy, erro
 
 	fmt.Fprintln(os.Stderr, "newDNSProxy:", target)
 
-	listenAddr := fmt.Sprintf("127.0.0.1:%d", port)
+	listenAddr := fmt.Sprintf(":%d", port)
 
 	proxy := &dnsProxy{}
 	proxy.Port = port

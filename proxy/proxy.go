@@ -33,7 +33,7 @@ func RegisterProxyFactory(proxyType string, factory proxyFactory) {
 }
 
 func createTCPListener(portRequested int) (listener *net.TCPListener, port int, err error) {
-	address := fmt.Sprintf("127.0.0.1:%d", portRequested)
+	address := fmt.Sprintf(":%d", portRequested)
 
 	addr, err := net.ResolveTCPAddr("tcp4", address)
 	listener, err = net.ListenTCP("tcp4", addr)
