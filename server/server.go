@@ -1,8 +1,14 @@
 package server
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"flag"
+	"fmt"
 	"os"
+	"time"
 
+	"github.com/dueckminor/go-sshtunnel/commands"
 	"github.com/dueckminor/go-sshtunnel/control"
 	"github.com/dueckminor/go-sshtunnel/dialer"
 	"github.com/dueckminor/go-sshtunnel/proxy"
@@ -13,11 +19,21 @@ import (
 type Server struct {
 	done    chan int
 	proxies []control.Proxy
+
+	connectors map[string]*ServerConnector
+}
+
+type ServerConnector struct {
+	id           string
+	sshConnector *dialer.SSHConnector
+	messageCount int
+	lastActivity time.Time
 }
 
 // Initialize initializes the Server
 func (server *Server) Initialize() {
 	server.done = make(chan int)
+	server.connectors = make(map[string]*ServerConnector)
 }
 
 // Health implements control.API.Health
@@ -60,9 +76,65 @@ func (server *Server) AddSSHKey(encodedKey string, passPhrase string) error {
 	return dialer.AddSSHKey(encodedKey, passPhrase)
 }
 
+func (server *Server) ListKeys() ([]control.SSHKey, error) {
+	return dialer.GetSSHKeys()
+}
+
 // AddDialer implements control.API.AddDialer
 func (server *Server) AddDialer(uri string) error {
 	return dialer.AddDialer("default", uri)
+}
+
+func randomHex(n int) (string, error) {
+	bytes := make([]byte, n)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
+}
+
+func (server *Server) Connect(in control.ConnectIn) (out control.ConnectOut, err error) {
+	var c *ServerConnector
+
+	if len(in.ID) > 0 {
+		c = server.connectors[in.ID]
+		if c == nil {
+			return out, fmt.Errorf("there is no connector with id '%s'", in.ID)
+		}
+	} else {
+		sshConnector, err := dialer.GetConnector()
+		if err != nil {
+			return out, err
+		}
+
+		c = &ServerConnector{
+			sshConnector: sshConnector,
+		}
+		c.id, err = randomHex(10)
+		if err != nil {
+			return out, err
+		}
+		server.connectors[c.id] = c
+	}
+
+	if len(in.Passphrase) > 0 {
+		c.sshConnector.SetPassphrase(in.Passphrase)
+	}
+
+	out.ID = c.id
+
+	for {
+		if c.messageCount < c.sshConnector.MessageCount() {
+			out.Messages = append(out.Messages, c.sshConnector.Message(c.messageCount))
+			c.messageCount++
+		} else {
+			if len(out.Messages) > 0 || c.sshConnector.Done() || c.sshConnector.Status() == control.ConnectStatusNeedPassphrase {
+				break
+			}
+		}
+	}
+	out.Status = c.sshConnector.Status()
+	return out, nil
 }
 
 func (server *Server) ListDialers() (dialers []control.Dialer, err error) {
@@ -105,10 +177,14 @@ func (server *Server) AddRule(rule control.Rule) error {
 
 // Run starts the Server and waits until the Server stops
 func Run(parameters []string) {
-	logfile := ""
-	if len(parameters) == 2 && parameters[0] == "--logfile" {
-		logfile = parameters[1]
-		f, err := os.Create(logfile)
+
+	flags := flag.NewFlagSet("daemon", flag.ExitOnError)
+	logfile := flags.String("logfile", "", "The logfile")
+
+	flags.Parse(parameters)
+
+	if len(*logfile) > 0 {
+		f, err := os.Create(*logfile)
 		if err != nil {
 			panic(err)
 		}
@@ -123,6 +199,22 @@ func Run(parameters []string) {
 	server.Initialize()
 
 	go control.Start(server)
+
+	additionalCommands := flags.Args()
+
+outer:
+	for len(additionalCommands) > 0 {
+		time.Sleep(time.Millisecond * 100)
+		for i, a := range additionalCommands {
+			if a == "--" {
+				commands.ExecuteCommand(additionalCommands[0], additionalCommands[1:i]...)
+				additionalCommands = additionalCommands[i+1:]
+				continue outer
+			}
+		}
+		commands.ExecuteCommand(additionalCommands[0], additionalCommands[1:]...)
+		break
+	}
 
 	rc := <-server.done
 

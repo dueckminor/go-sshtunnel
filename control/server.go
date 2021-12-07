@@ -52,13 +52,21 @@ func (s server) GetProxies(c *gin.Context) {
 	c.AbortWithStatusJSON(http.StatusOK, response)
 }
 
+func (s server) GetKeys(c *gin.Context) {
+	response, err := s.impl.ListKeys()
+	if err != nil {
+		return
+	}
+	c.AbortWithStatusJSON(http.StatusOK, response)
+}
+
 func (s server) PostKeys(c *gin.Context) {
 	request := SSHKey{}
 	err := c.BindJSON(&request)
 	if err != nil {
 		return
 	}
-	err = s.impl.AddSSHKey(request.EncodedKey, request.PassPhrase)
+	err = s.impl.AddSSHKey(request.PrivateKey, request.Passphrase)
 	if err != nil {
 		return
 	}
@@ -82,6 +90,19 @@ func (s server) GetDialers(c *gin.Context) {
 		return
 	}
 	c.AbortWithStatusJSON(http.StatusOK, response)
+}
+
+func (s server) Connect(c *gin.Context) {
+	in := ConnectIn{}
+	err := c.BindJSON(&in)
+	if err != nil {
+		return
+	}
+	out, err := s.impl.Connect(in)
+	if err != nil {
+		return
+	}
+	c.AbortWithStatusJSON(http.StatusOK, out)
 }
 
 func (s server) GetState(c *gin.Context) {
@@ -117,23 +138,32 @@ func (s server) PostRules(c *gin.Context) {
 	}
 }
 
+func (s server) createGinEngine() *gin.Engine {
+	r := gin.Default()
+	r.GET("/api/health", s.Health)
+	r.GET("/api/status", s.Status)
+	r.GET("/api/proxies", s.GetProxies)
+	r.POST("/api/proxies", s.PostProxies)
+	r.GET("/api/ssh/keys", s.GetKeys)
+	r.POST("/api/ssh/keys", s.PostKeys)
+	r.POST("/api/ssh/connect", s.Connect)
+	r.POST("/api/dialers", s.PostDialers)
+	r.GET("/api/dialers", s.GetDialers)
+	r.GET("/api/state", s.GetState)
+	r.PUT("/api/state", s.PutState)
+	r.POST("/api/targets", s.PostTargets)
+	r.GET("/api/rules", s.GetRules)
+	r.POST("/api/rules", s.PostRules)
+	return r
+}
+
 // Start starts the API controller
 func Start(impl API) {
 	s := server{
 		impl: impl,
 	}
-	r := gin.Default()
-	r.GET("/health", s.Health)
-	r.GET("/status", s.Status)
-	r.GET("/proxies", s.GetProxies)
-	r.POST("/proxies", s.PostProxies)
-	r.POST("/ssh/keys", s.PostKeys)
-	r.POST("/dialers", s.PostDialers)
-	r.GET("/dialers", s.GetDialers)
-	r.GET("/state", s.GetState)
-	r.PUT("/state", s.PutState)
-	r.POST("/targets", s.PostTargets)
-	r.GET("/rules", s.GetRules)
-	r.POST("/rules", s.PostRules)
+
+	r := s.createGinEngine()
+
 	panic(r.RunUnix("/tmp/sshtunnel.sock"))
 }

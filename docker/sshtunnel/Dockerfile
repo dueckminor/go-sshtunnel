@@ -16,6 +16,8 @@ RUN go build -o ./sshtunnel main.go
 FROM alpine
 
 COPY --from=builder /src/sshtunnel /usr/local/bin/sshtunnel
+COPY docker/scripts/start-sshtunnel /usr/local/bin/start-sshtunnel
+COPY docker/scripts/update-iptables /usr/local/bin/update-iptables
 RUN apk add --no-cache iptables
 
-ENTRYPOINT [ "/usr/local/bin/sshtunnel", "daemon", "--logfile", "/dev/stdout" ]
+ENTRYPOINT [ "/usr/local/bin/start-sshtunnel" ]

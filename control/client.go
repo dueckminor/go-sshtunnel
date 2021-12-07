@@ -15,7 +15,7 @@ type clientAPI struct {
 }
 
 func (c clientAPI) Health() (healthy bool, err error) {
-	resp, err := c.Get("/health")
+	resp, err := c.Get("/api/health")
 	if err != nil {
 		return false, err
 	}
@@ -34,7 +34,7 @@ func (c clientAPI) Health() (healthy bool, err error) {
 }
 
 func (c clientAPI) Status() (status Status, err error) {
-	err = c.GetJSON("/status", &status)
+	err = c.GetJSON("/api/status", &status)
 	if err != nil {
 		return Status{}, err
 	}
@@ -42,7 +42,7 @@ func (c clientAPI) Status() (status Status, err error) {
 }
 
 func (c clientAPI) Stop() (err error) {
-	req, err := http.NewRequest("PUT", c.MakeURL("/state"), nil)
+	req, err := http.NewRequest("PUT", c.MakeURL("/api/state"), nil)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -54,7 +54,7 @@ func (c clientAPI) Stop() (err error) {
 }
 
 func (c clientAPI) StartProxy(proxyType string, proxyParameter string) (proxyInfo Proxy, err error) {
-	err = c.PostJSON("/proxies", Proxy{
+	err = c.PostJSON("/api/proxies", Proxy{
 		ProxyType:       proxyType,
 		ProxyParameters: proxyParameter,
 	}, &proxyInfo)
@@ -62,35 +62,45 @@ func (c clientAPI) StartProxy(proxyType string, proxyParameter string) (proxyInf
 }
 
 func (c clientAPI) ListProxies() (proxyInfos []Proxy, err error) {
-	err = c.GetJSON("/proxies", &proxyInfos)
+	err = c.GetJSON("/api/proxies", &proxyInfos)
 	return proxyInfos, err
 }
 
-func (c clientAPI) AddSSHKey(encodedKey string, passPhrase string) error {
-	return c.PostJSON("/ssh/keys", SSHKey{
-		EncodedKey: encodedKey,
-		PassPhrase: passPhrase,
+func (c clientAPI) AddSSHKey(privateKey string, passphrase string) error {
+	return c.PostJSON("/api/ssh/keys", SSHKey{
+		PrivateKey: privateKey,
+		Passphrase: passphrase,
 	}, nil)
 }
 
+func (c clientAPI) ListKeys() (keys []SSHKey, err error) {
+	err = c.GetJSON("/api/keys", &keys)
+	return keys, err
+}
+
 func (c clientAPI) AddDialer(uri string) error {
-	return c.PostJSON("/dialers", SSHTarget{
+	return c.PostJSON("/api/dialers", SSHTarget{
 		URI: uri,
 	}, nil)
 }
 
 func (c clientAPI) ListDialers() (dialers []Dialer, err error) {
-	err = c.GetJSON("/dialers", &dialers)
+	err = c.GetJSON("/api/dialers", &dialers)
 	return dialers, err
 }
 
+func (c clientAPI) Connect(in ConnectIn) (out ConnectOut, err error) {
+	err = c.PostJSON("/api/ssh/connect", in, &out)
+	return out, err
+}
+
 func (c clientAPI) ListRules() (rules []Rule, err error) {
-	err = c.GetJSON("/rules", &rules)
+	err = c.GetJSON("/api/rules", &rules)
 	return rules, err
 }
 
 func (c clientAPI) AddRule(rule Rule) error {
-	err := c.PostJSON("/rules", rule, nil)
+	err := c.PostJSON("/api/rules", rule, nil)
 	return err
 }
 
@@ -107,13 +117,22 @@ func (c clientAPI) Get(path string) (resp *http.Response, err error) {
 
 func (c clientAPI) GetJSON(path string, responseBody interface{}) error {
 	req, err := http.NewRequest("GET", c.MakeURL(path), nil)
+	if err != nil {
+		return err
+	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
+	if err != nil {
+		return err
+	}
 	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
 	return json.Unmarshal(body, responseBody)
 }
 
@@ -122,8 +141,10 @@ func (c clientAPI) PostJSON(path string, requestBody interface{}, responseBody i
 	if err != nil {
 		return err
 	}
-
 	req, err := http.NewRequest("POST", c.MakeURL(path), bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
@@ -131,7 +152,9 @@ func (c clientAPI) PostJSON(path string, requestBody interface{}, responseBody i
 	}
 	defer resp.Body.Close()
 	body, err = ioutil.ReadAll(resp.Body)
-
+	if err != nil {
+		return err
+	}
 	return json.Unmarshal(body, responseBody)
 }
 
