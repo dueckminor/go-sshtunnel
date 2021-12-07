@@ -1,6 +1,7 @@
 package dialer
 
 import (
+	"encoding/base64"
 	"fmt"
 	"log"
 	"net"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ScaleFT/sshkeys"
+	"github.com/dueckminor/go-sshtunnel/control"
 	"github.com/dueckminor/go-sshtunnel/logger"
 	"golang.org/x/crypto/ssh"
 )
@@ -23,16 +25,29 @@ type SSHDialer struct {
 	addresses []SSHAddress // ip:port
 	config    *ssh.ClientConfig
 	client    *ssh.Client
-	syncCalls CallGroup
+	signers   []ssh.Signer
 	lock      sync.RWMutex
+
+	sshConnector *SSHConnector
+}
+
+type SSHConnector struct {
+	messages    []string
+	passphrase  string
+	lock        sync.RWMutex
+	interactive bool
+	status      control.ConnectStatus
+	err         error
+	config      *ssh.ClientConfig
+	sshDialer   *SSHDialer
+	waiting     []chan bool
 }
 
 func NewSSHDialer(timeout int) (sshDialer *SSHDialer, err error) {
 	sshDialer = &SSHDialer{
-		config:    &ssh.ClientConfig{},
-		client:    nil,
-		syncCalls: CallGroup{},
-		lock:      sync.RWMutex{}}
+		config: &ssh.ClientConfig{},
+		client: nil,
+		lock:   sync.RWMutex{}}
 
 	//dialers["default"] = sshDialer
 
@@ -65,8 +80,24 @@ func (sshDialer *SSHDialer) AddSSHKey(encodedKey string, passPhrase string) erro
 		return err
 	}
 	fmt.Println(signer)
+
+	sshDialer.signers = append(sshDialer.signers, signer)
 	sshDialer.config.Auth = append(sshDialer.config.Auth, ssh.PublicKeys(signer))
 	return nil
+}
+
+func (sshDialer *SSHDialer) GetSSHKeys() (keys []control.SSHKey, err error) {
+	for _, signer := range sshDialer.signers {
+		pub := signer.PublicKey()
+
+		sshkey := control.SSHKey{}
+		sshkey.Type = pub.Type()
+		sshkey.PublicKey = base64.StdEncoding.EncodeToString((pub.Marshal()))
+
+		keys = append(keys, sshkey)
+	}
+
+	return keys, nil
 }
 
 func (sshDialer *SSHDialer) AddDialer(uri string) error {
@@ -101,11 +132,11 @@ func (sshDialer *SSHDialer) AddDialer(uri string) error {
 
 func (sshDialer *SSHDialer) Dial(network, addr string) (net.Conn, error) {
 	sshDialer.lock.RLock()
-	cli := sshDialer.client
+	client := sshDialer.client
 	sshDialer.lock.RUnlock()
 
-	if nil != cli {
-		c, err := cli.Dial(network, addr)
+	if nil != client {
+		c, err := client.Dial(network, addr)
 		if err == nil {
 			return c, nil
 		}
@@ -118,101 +149,205 @@ func (sshDialer *SSHDialer) Dial(network, addr string) (net.Conn, error) {
 			// -> no need to dial again
 			return nil, err
 		}
+
+		sshDialer.lock.Lock()
+		sshDialer.client = nil
+		sshDialer.lock.Unlock()
 	}
 
-	// we are currently not connected to the ssh server
-	// -> dial again
-	var sshHost string
-
-	returnValue, err := sshDialer.syncCalls.CallSynchronized(network+addr,
-		func() (interface{}, error) {
-			// The following code does the same as:
-			//   return ssh.Dial("tcp", sshDialer.address, sshDialer.config)
-			// but allows to use a comma seperated list of hostnames
-			var conn net.Conn
-			var err error
-
-			cfg := new(ssh.ClientConfig)
-			*cfg = *sshDialer.config
-
-			for _, addr := range sshDialer.addresses {
-				if len(addr.user) > 0 {
-					cfg.User = addr.user
-				}
-
-				sshHost = addr.host
-
-				logger.L.Printf("Trying to connect to %s@%s\n", cfg.User, sshHost)
-
-				conn, err = net.DialTimeout("tcp", addr.host, sshDialer.config.Timeout)
-				if err != nil {
-					logger.L.Printf("Connect to %s@%s failed. Reason: %v\n", cfg.User, sshHost, err)
-					continue
-				}
-				// cSpell: ignore chans,reqs
-				var c ssh.Conn
-				var chans <-chan ssh.NewChannel
-				var reqs <-chan *ssh.Request
-				c, chans, reqs, err = ssh.NewClientConn(conn, sshHost, cfg)
-				if err != nil {
-					logger.L.Printf("Handshake with %s@%s failed. Reason: %v\n", cfg.User, sshHost, err)
-					continue
-				}
-				logger.L.Printf("Handshake with %s@%s succeeded\n", cfg.User, sshHost)
-				return ssh.NewClient(c, chans, reqs), nil
-			}
-			return nil, err
-		})
-
+	client, err := sshDialer.Connect()
 	if err != nil {
 		return nil, err
 	}
 
-	cli = returnValue.(*ssh.Client)
+	return client.Dial(network, addr)
+}
+
+func (sshDialer *SSHDialer) Connect() (*ssh.Client, error) {
+	sshDialer.lock.RLock()
+	if nil != sshDialer.client {
+		return sshDialer.client, nil
+	}
+	sshDialer.lock.RUnlock()
+
+	sshConnector := sshDialer.GetConnector(false)
+
+	for !sshConnector.Done() {
+		sshConnector.Wait()
+	}
+
+	if sshDialer.client != nil {
+		return sshDialer.client, nil
+	}
+	return nil, sshConnector.err
+}
+
+func (sshDialer *SSHDialer) GetConnector(interactive bool) *SSHConnector {
+	sshDialer.lock.RLock()
+	if nil != sshDialer.sshConnector {
+		if interactive {
+			sshDialer.sshConnector.interactive = true
+		}
+		return sshDialer.sshConnector
+	}
+	sshDialer.lock.RUnlock()
 
 	sshDialer.lock.Lock()
-	sshDialer.client = cli
-	sshDialer.lock.Unlock()
+	defer sshDialer.lock.Unlock()
 
-	return cli.Dial(network, addr)
-}
-
-type call struct {
-	waitGroup   sync.WaitGroup
-	returnValue interface{}
-	err         error
-}
-
-type CallGroup struct {
-	mutex   sync.Mutex
-	id2call map[string]*call
-}
-
-// CallSynchronized executes and returns the results of the given function, making
-// sure that only one execution is in-flight for a given key at a
-// time. If a duplicate comes in, the duplicate caller waits for the
-// original to complete and receives the same results.
-func (group *CallGroup) CallSynchronized(key string, callMe func() (interface{}, error)) (interface{}, error) {
-	group.mutex.Lock()
-	if group.id2call == nil {
-		group.id2call = make(map[string]*call)
+	sshDialer.sshConnector = &SSHConnector{
+		interactive: interactive,
+		sshDialer:   sshDialer,
+		lock:        sync.RWMutex{},
 	}
-	if c, ok := group.id2call[key]; ok {
-		group.mutex.Unlock()
-		c.waitGroup.Wait()
-		return c.returnValue, c.err
+
+	go sshDialer.sshConnector.connect()
+
+	return sshDialer.sshConnector
+}
+
+func (sshConnector *SSHConnector) Status() control.ConnectStatus {
+	return sshConnector.status
+}
+
+func (sshConnector *SSHConnector) MessageCount() int {
+	sshConnector.lock.RLock()
+	defer sshConnector.lock.RUnlock()
+	return len(sshConnector.messages)
+}
+
+func (sshConnector *SSHConnector) Message(i int) string {
+	sshConnector.lock.RLock()
+	defer sshConnector.lock.RUnlock()
+	return sshConnector.messages[i]
+}
+
+func (sshConnector *SSHConnector) SetPassphrase(passphrase string) error {
+	sshConnector.lock.Lock()
+	defer sshConnector.lock.Unlock()
+	if sshConnector.status != control.ConnectStatusNeedPassphrase {
+		return fmt.Errorf("wrong status. Expected %s, Have %s", control.ConnectStatusNeedPassphrase, sshConnector.status)
 	}
-	c := new(call)
-	c.waitGroup.Add(1)
-	group.id2call[key] = c
-	group.mutex.Unlock()
+	sshConnector.passphrase = passphrase
+	sshConnector.status = control.ConnectStatusHandshake
+	sshConnector.notifyWaitingLocked()
+	return nil
+}
 
-	c.returnValue, c.err = callMe()
-	c.waitGroup.Done()
+func (sshConnector *SSHConnector) Done() bool {
+	return sshConnector.status == control.ConnectStatusSucceeded ||
+		sshConnector.status == control.ConnectStatusFailed
+}
 
-	group.mutex.Lock()
-	delete(group.id2call, key)
-	group.mutex.Unlock()
+func (sshConnector *SSHConnector) Print(msg string) {
+	sshConnector.lock.Lock()
+	defer sshConnector.lock.Unlock()
+	sshConnector.messages = append(sshConnector.messages, msg)
+	sshConnector.notifyWaitingLocked()
+}
 
-	return c.returnValue, c.err
+func (sshConnector *SSHConnector) Printf(format string, args ...interface{}) {
+	sshConnector.Print(fmt.Sprintf(format, args...))
+}
+
+func (sshConnector *SSHConnector) connect() {
+	var sshHost string
+	defer func() {
+		if sshConnector.status != control.ConnectStatusSucceeded {
+			sshConnector.status = control.ConnectStatusFailed
+		}
+		sshConnector.sshDialer.sshConnector = nil
+		sshConnector.notifyWaiting()
+	}()
+
+	// The following code does the same as:
+	//   return ssh.Dial("tcp", sshDialer.address, sshDialer.config)
+	// but allows to use a comma seperated list of hostnames
+	var conn net.Conn
+	var err error
+
+	cfg := new(ssh.ClientConfig)
+	*cfg = *sshConnector.sshDialer.config
+
+	cfg.Auth = append(sshConnector.sshDialer.config.Auth, ssh.PasswordCallback(func() (secret string, err error) {
+		sshConnector.status = control.ConnectStatusNeedPassphrase
+		for !sshConnector.Done() {
+			if len(sshConnector.passphrase) > 0 {
+				passphrase := sshConnector.passphrase
+				sshConnector.passphrase = ""
+				sshConnector.status = control.ConnectStatusHandshake
+				sshConnector.notifyWaiting()
+				return passphrase, nil
+			}
+			sshConnector.Wait()
+		}
+		return "", nil
+	}))
+	cfg.BannerCallback = func(message string) error {
+		sshConnector.Print(message)
+		return nil
+	}
+
+	for _, addr := range sshDialer.addresses {
+		if len(addr.user) > 0 {
+			cfg.User = addr.user
+		}
+
+		sshHost = addr.host
+
+		sshConnector.Printf("Trying to connect to %s@%s\n", cfg.User, sshHost)
+		sshConnector.status = control.ConnectStatusConnecting
+
+		conn, err = net.DialTimeout("tcp", addr.host, sshDialer.config.Timeout)
+		if err != nil {
+			sshConnector.Printf("Connect to %s@%s failed. Reason: %v\n", cfg.User, sshHost, err)
+			continue
+		}
+
+		sshConnector.status = control.ConnectStatusHandshake
+
+		// cSpell: ignore chans,reqs
+		var c ssh.Conn
+		var chans <-chan ssh.NewChannel
+		var reqs <-chan *ssh.Request
+		c, chans, reqs, err = ssh.NewClientConn(conn, sshHost, cfg)
+
+		if err != nil {
+			sshConnector.Printf("Handshake with %s@%s failed. Reason: %v\n", cfg.User, sshHost, err)
+			continue
+		}
+		sshConnector.Printf("Handshake with %s@%s succeeded\n", cfg.User, sshHost)
+		sshConnector.sshDialer.client = ssh.NewClient(c, chans, reqs)
+		sshConnector.status = control.ConnectStatusSucceeded
+		sshConnector.err = nil
+		return
+	}
+}
+
+func (sshConnector *SSHConnector) notifyWaiting() {
+	sshConnector.lock.Lock()
+	defer sshConnector.lock.Unlock()
+	sshConnector.notifyWaitingLocked()
+}
+
+func (sshConnector *SSHConnector) notifyWaitingLocked() {
+	for _, w := range sshConnector.waiting {
+		w <- true
+	}
+	sshConnector.waiting = nil
+}
+
+func (sshConnector *SSHConnector) Wait() error {
+	if sshConnector.Done() {
+		return sshConnector.err
+	}
+
+	w := make(chan bool)
+
+	sshConnector.lock.Lock()
+	sshConnector.waiting = append(sshConnector.waiting, w)
+	sshConnector.lock.Unlock()
+
+	<-w
+	return nil
 }

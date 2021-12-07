@@ -3,4 +3,4 @@
 DIR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.."; pwd)"
 
 cd "${DIR_ROOT}"
-docker build . -t sshtunnel -f docker/sshtunnel/Dockerfile
+docker build . -t dueckminor/sshtunnel:latest -f docker/sshtunnel/Dockerfile

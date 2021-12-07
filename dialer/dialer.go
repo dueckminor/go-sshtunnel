@@ -35,6 +35,14 @@ func AddSSHKey(encodedKey string, passPhrase string) error {
 	return makeSSHDialer().AddSSHKey(encodedKey, passPhrase)
 }
 
+func GetSSHKeys() (keys []control.SSHKey, err error) {
+	return makeSSHDialer().GetSSHKeys()
+}
+
+func GetConnector() (sshConnector *SSHConnector, err error) {
+	return makeSSHDialer().GetConnector(true), nil
+}
+
 func makeSSHDialer() *SSHDialer {
 	if sshDialer == nil {
 		sshDialer, _ = NewSSHDialer(5)

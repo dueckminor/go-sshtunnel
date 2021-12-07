@@ -7,12 +7,14 @@ type API interface {
 	Stop() error
 	//// SSH Keys ////
 	AddSSHKey(encodedKey string, passPhrase string) error
+	ListKeys() ([]SSHKey, error)
 	//// Proxies ////
 	StartProxy(proxyType string, proxyParameter string) (Proxy, error)
 	ListProxies() ([]Proxy, error)
 	//// Dialer ////
 	AddDialer(uri string) error
 	ListDialers() ([]Dialer, error)
+	Connect(in ConnectIn) (out ConnectOut, err error)
 
 	//// Rules ////
 	ListRules() ([]Rule, error)
@@ -32,8 +34,10 @@ type Status struct {
 
 // SSHKey is the transport format of the POST /ssh/keys endpoint
 type SSHKey struct {
-	EncodedKey string `json:"encodedKey"`
-	PassPhrase string `json:"passPhrase"`
+	Type       string `json:"type"`
+	PublicKey  string `json:"public_key"`
+	PrivateKey string `json:"private_key,omitempty"`
+	Passphrase string `json:"passphrase,omitempty"`
 }
 
 // SSHTarget is the transport format of the POST /dialers endpoint
@@ -59,4 +63,26 @@ type Dialer struct {
 	Name        string `json:"name"`
 	Type        string `json:"type"`
 	Destination string `json:"destination"`
+}
+
+type ConnectStatus string
+
+const (
+	ConnectStatusConnecting     ConnectStatus = "connecting"
+	ConnectStatusHandshake      ConnectStatus = "handshake"
+	ConnectStatusNeedPassphrase ConnectStatus = "need_passphrase"
+	ConnectStatusSucceeded      ConnectStatus = "succeeded"
+	ConnectStatusFailed         ConnectStatus = "failed"
+)
+
+// ConnectIn defines the input parameters of the Connect API call
+type ConnectIn struct {
+	ID         string `json:"id"`
+	Passphrase string `json:"passphrase"`
+}
+
+type ConnectOut struct {
+	ID       string        `json:"id"`
+	Status   ConnectStatus `json:"status"`
+	Messages []string      `json:"messages"`
 }
