@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/dueckminor/go-sshtunnel/control"
 	"github.com/dueckminor/go-sshtunnel/logger"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/agent"
 )
 
 type SSHAddress struct {
@@ -283,6 +285,20 @@ func (sshConnector *SSHConnector) connect() {
 		}
 		return "", nil
 	}))
+
+	socket := os.Getenv("SSH_AUTH_SOCK")
+	if len(socket) > 0 {
+		fmt.Println("Trying to use SSH_AUTH_SOCK:", socket)
+		conn, err := net.Dial("unix", socket)
+		if err == nil {
+			fmt.Println("connected to SSH_AUTH_SOCK")
+			agentClient := agent.NewClient(conn)
+			cfg.Auth = append(cfg.Auth, ssh.PublicKeysCallback(agentClient.Signers))
+		} else {
+			fmt.Println("Failed to connect to SSH_AUTH_SOCK:", err)
+		}
+	}
+
 	cfg.BannerCallback = func(message string) error {
 		sshConnector.Print(message)
 		return nil
