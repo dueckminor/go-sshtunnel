@@ -19,7 +19,7 @@ func (cmdIptablesScript) Execute(args ...string) error {
 	fmt.Print(`#!/usr/bin/env bash
 set -e
 
-sudo iptables-save | grep -v sshtunnel | sudo iptables-restore
+sudo iptables-save | grep -v sshtunnel | grep -v "PREROUTING.*to-ports" | sudo iptables-restore
 `)
 
 	c := control.Client()
