@@ -95,14 +95,42 @@ func forwardDNS(listenAddr, targetAddr string) error {
 			dnsClient := new(dns.Client)
 			dnsClient.Net = "tcp"
 			fmt.Println("----- REQUEST -----")
+			fmt.Println("LocalAddr:", w.LocalAddr())
+			fmt.Println("RemoteAddr:", w.RemoteAddr())
 			fmt.Println(r)
 			response, _, err := dnsClient.Exchange(r, targetAddr)
 			if err != nil {
 				fmt.Println(err)
 			}
 			fmt.Println("----- RESPONSE -----")
-			fmt.Println(response)
-			w.WriteMsg(response)
+			fmt.Println("LocalAddr:", w.LocalAddr())
+			fmt.Println("RemoteAddr:", w.RemoteAddr())
+
+			// as we get the response via TCP and have to send it to our client
+			// via UDP, the message size MUST NOT exceed 512 bytes.
+			// In case we get w longer response, we have to mark it as truncated
+			// and remove as many records as needed to get a message which
+			// is not longer than 512 bytes.
+			for {
+				data, err := response.Pack()
+				if err != nil {
+					fmt.Println(err)
+					break
+				}
+				if len(data) <= 512 {
+					fmt.Println("Length:", len(data))
+					_, err = w.Write(data)
+					break
+				}
+				if len(response.Answer) == 0 {
+					fmt.Println("Truncation is required, but not possible")
+					_, err = w.Write(data)
+					break
+				}
+				fmt.Println("Truncate:", len(data))
+				response.MsgHdr.Truncated = true
+				response.Answer = response.Answer[0 : len(response.Answer)-1]
+			}
 		}
 	})
 	server := &dns.Server{Addr: listenAddr, Net: "udp"}
