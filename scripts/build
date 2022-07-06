@@ -24,10 +24,11 @@ if [[ "$(uname -s)" == "Linux" ]]; then
     ADDITIONAL_TAR_ARGS+=("--group" "0")
 fi
 
+mkdir -p "${DIR_ROOT}/gen/assets"
 pushd "${DIR_ROOT}/gen/linux_amd64"
-    tar czf "${DIR_ROOT}/gen/sshtunnel-${FILE_VERSION}linux-amd64.tar.gz" "${ADDITIONAL_TAR_ARGS[@]}" sshtunnel
+    tar czf "${DIR_ROOT}/gen/assets/sshtunnel-${FILE_VERSION}linux-amd64.tar.gz" "${ADDITIONAL_TAR_ARGS[@]}" sshtunnel
 popd
 
 pushd "${DIR_ROOT}/gen/linux_arm64"
-    tar czf "${DIR_ROOT}/gen/sshtunnel-${FILE_VERSION}linux-arm64.tar.gz" "${ADDITIONAL_TAR_ARGS[@]}" sshtunnel
+    tar czf "${DIR_ROOT}/gen/assets/sshtunnel-${FILE_VERSION}linux-arm64.tar.gz" "${ADDITIONAL_TAR_ARGS[@]}" sshtunnel
 popd

@@ -39,26 +39,14 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload Release Asset (amd64)
-        id: upload-release-asset 
-        uses: actions/upload-release-asset@v1
+      - name: Upload Release Assets
+        id: upload-release-assets
+        uses: dwenegar/upload-release-assets@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-          asset_path: ./gen/sshtunnel-${{ github.ref }}-linux-amd64.tar.gz
-          asset_name: sshtunnel-${{ github.ref }}-linux-amd64.tar.gz
-          asset_content_type: application/octet-stream
-      - name: Upload Release Asset (arm64)
-        id: upload-release-asset 
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-          asset_path: ./gen/sshtunnel-${{ github.ref }}-linux-arm64.tar.gz
-          asset_name: sshtunnel-${{ github.ref }}-linux-arm64.tar.gz
-          asset_content_type: application/octet-stream
+          release_id: ${{ steps.create_release.outputs.id }}
+          assets_path: ./gen/assets
 
   docker:
     name: Docker
