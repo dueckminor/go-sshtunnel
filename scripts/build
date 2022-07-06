@@ -4,11 +4,13 @@ set -e
 
 DIR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.."; pwd)"
 
+VERSION=
 FILE_VERSION=""
 ADDITIONAL_ARGS=()
 if [[ -n "${1}" ]]; then
-    ADDITIONAL_ARGS=("-ldflags=-X github.com/dueckminor/go-sshtunnel/commands.version=${1}")
-    FILE_VERSION="${1}-"
+    VERSION="${1//refs\/tags\//}"
+    ADDITIONAL_ARGS=("-ldflags=-X github.com/dueckminor/go-sshtunnel/commands.version=${VERSION}")
+    FILE_VERSION="${VERSION}-"
 fi
 
 echo "compiling sshtunnel..."
