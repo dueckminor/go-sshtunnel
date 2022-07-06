@@ -4,3 +4,4 @@ build/**
 build-arm64/**
 tmp/**
 vendor/**
+gen/**

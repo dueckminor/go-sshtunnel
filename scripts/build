@@ -4,8 +4,30 @@ set -e
 
 DIR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.."; pwd)"
 
+FILE_VERSION=""
+ADDITIONAL_ARGS=()
+if [[ -n "${1}" ]]; then
+    ADDITIONAL_ARGS=("-ldflags=-X github.com/dueckminor/go-sshtunnel/commands.version=${1}")
+    FILE_VERSION="${1}-"
+fi
+
 echo "compiling sshtunnel..."
-mkdir -p "${DIR_ROOT}/build"
-GOOS=linux GOARCH=amd64 go build -o "${DIR_ROOT}/build/sshtunnel" main.go
-mkdir -p "${DIR_ROOT}/build-arm64"
-GOOS=linux GOARCH=arm64 go build -o "${DIR_ROOT}/build-arm64/sshtunnel" main.go
+mkdir -p "${DIR_ROOT}/gen/linux_amd64"
+GOOS=linux GOARCH=amd64 go build "${ADDITIONAL_ARGS[@]}" -o "${DIR_ROOT}/gen/linux_amd64/sshtunnel" main.go
+
+mkdir -p "${DIR_ROOT}/gen/linux_arm64"
+GOOS=linux GOARCH=arm64 go build "${ADDITIONAL_ARGS[@]}" -o "${DIR_ROOT}/gen/linux_arm64/sshtunnel" main.go
+
+ADDITIONAL_TAR_ARGS=()
+if [[ "$(uname -s)" == "Linux" ]]; then
+    ADDITIONAL_TAR_ARGS+=("--owner" "0")
+    ADDITIONAL_TAR_ARGS+=("--group" "0")
+fi
+
+pushd "${DIR_ROOT}/gen/linux_amd64"
+    tar czf "${DIR_ROOT}/gen/sshtunnel-${FILE_VERSION}linux-amd64.tar.gz" "${ADDITIONAL_TAR_ARGS[@]}" sshtunnel
+popd
+
+pushd "${DIR_ROOT}/gen/linux_arm64"
+    tar czf "${DIR_ROOT}/gen/sshtunnel-${FILE_VERSION}linux-arm64.tar.gz" "${ADDITIONAL_TAR_ARGS[@]}" sshtunnel
+popd
