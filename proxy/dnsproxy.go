@@ -94,6 +94,13 @@ func forwardDNS(listenAddr, targetAddr string) error {
 			}
 		}()
 
+		msgSize := uint16(dns.MinMsgSize)
+		//check if the client accepts a different udp message size
+		opt := r.IsEdns0()
+		if opt != nil && opt.UDPSize() >= dns.MinMsgSize {
+			msgSize = opt.UDPSize()
+		}
+
 		switch r.Opcode {
 		case dns.OpcodeQuery:
 
@@ -106,6 +113,7 @@ func forwardDNS(listenAddr, targetAddr string) error {
 			fmt.Println("Time:", time.Now().Format(timeFormat))
 			fmt.Println("LocalAddr:", w.LocalAddr())
 			fmt.Println("RemoteAddr:", w.RemoteAddr())
+			fmt.Println("OPT PackageSize:", msgSize)
 			fmt.Println(r)
 
 			response, runtime, err := dnsClient.Exchange(r, targetAddr)
@@ -128,16 +136,17 @@ func forwardDNS(listenAddr, targetAddr string) error {
 			// and remove as many records as needed to get a message which
 			// is not longer than 512 bytes.
 			// use truncate function to compress or truncate packages.
-			response.Truncate(512)
+			response.Truncate(int(msgSize))
 
 			for {
+
 				data, err := response.Pack()
 				if err != nil {
 					fmt.Println("----- ERROR -----")
 					fmt.Println(err)
 					break
 				}
-				if len(data) <= 512 {
+				if len(data) <= int(msgSize) {
 					fmt.Println("----- DEFAULT UDP MESSAGE -----")
 					fmt.Println("Time:", time.Now().Format(timeFormat))
 					fmt.Println("Length:", len(data))
