@@ -4,10 +4,13 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"time"
 
 	"github.com/dueckminor/go-sshtunnel/dialer"
 	"github.com/miekg/dns"
 )
+
+var timeFormat = "2006-01-02 15:04:05"
 
 func init() {
 	RegisterProxyFactory("dns", newDNSProxy)
@@ -90,46 +93,73 @@ func forwardDNS(listenAddr, targetAddr string) error {
 				fmt.Println("panic occurred:", err)
 			}
 		}()
+
 		switch r.Opcode {
 		case dns.OpcodeQuery:
+
 			dnsClient := new(dns.Client)
+			dnsClient.WriteTimeout = 10 * time.Second
+			dnsClient.ReadTimeout = 10 * time.Second
 			dnsClient.Net = "tcp"
+
 			fmt.Println("----- REQUEST -----")
+			fmt.Println("Time:", time.Now().Format(timeFormat))
 			fmt.Println("LocalAddr:", w.LocalAddr())
 			fmt.Println("RemoteAddr:", w.RemoteAddr())
 			fmt.Println(r)
-			response, _, err := dnsClient.Exchange(r, targetAddr)
+
+			response, runtime, err := dnsClient.Exchange(r, targetAddr)
 			if err != nil {
+				fmt.Println("----- ERROR -----")
+				fmt.Println("Time:", time.Now().Format(timeFormat))
 				fmt.Println(err)
 			}
+
 			fmt.Println("----- RESPONSE -----")
+			fmt.Println("Time:", time.Now().Format(timeFormat))
+			fmt.Println("Runtime:", runtime)
 			fmt.Println("LocalAddr:", w.LocalAddr())
 			fmt.Println("RemoteAddr:", w.RemoteAddr())
+			fmt.Println("Response:", response)
 
 			// as we get the response via TCP and have to send it to our client
 			// via UDP, the message size MUST NOT exceed 512 bytes.
 			// In case we get w longer response, we have to mark it as truncated
 			// and remove as many records as needed to get a message which
 			// is not longer than 512 bytes.
+			// use truncate function to compress or truncate packages.
+			response.Truncate(512)
+
 			for {
 				data, err := response.Pack()
 				if err != nil {
+					fmt.Println("----- ERROR -----")
 					fmt.Println(err)
 					break
 				}
 				if len(data) <= 512 {
+					fmt.Println("----- DEFAULT UDP MESSAGE -----")
+					fmt.Println("Time:", time.Now().Format(timeFormat))
 					fmt.Println("Length:", len(data))
-					_, err = w.Write(data)
+					fmt.Println("Compressed:", response.Compress)
+
+					if _, err = w.Write(data); err != nil {
+						fmt.Println("----- ERROR -----")
+						fmt.Println(err)
+					}
+
 					break
 				}
 				if len(response.Answer) == 0 {
 					fmt.Println("Truncation is required, but not possible")
-					_, err = w.Write(data)
+					if _, err = w.Write(data); err != nil {
+						fmt.Println("----- ERROR -----")
+					}
 					break
 				}
 				fmt.Println("Truncate:", len(data))
-				response.MsgHdr.Truncated = true
-				response.Answer = response.Answer[0 : len(response.Answer)-1]
+				fmt.Println("Answer: ", len(response.Answer))
+				fmt.Println("Length:", len(data))
 			}
 		}
 	})
