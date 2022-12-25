@@ -6,7 +6,7 @@ require (
 	github.com/ScaleFT/sshkeys v0.0.0-20200327173127-6142f742bca5
 	github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5
 	github.com/gin-gonic/gin v1.8.2
-	github.com/manifoldco/promptui v0.7.0
+	github.com/manifoldco/promptui v0.9.0
 	github.com/miekg/dns v1.1.50
 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
 	golang.org/x/net v0.4.0
