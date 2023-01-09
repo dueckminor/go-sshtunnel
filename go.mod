@@ -1,6 +1,6 @@
 module github.com/dueckminor/go-sshtunnel
 
-go 1.18
+go 1.19
 
 require (
 	github.com/ScaleFT/sshkeys v1.2.0
