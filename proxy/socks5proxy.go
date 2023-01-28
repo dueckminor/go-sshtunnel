@@ -58,9 +58,15 @@ func (proxy *socks5Proxy) start(port int) (err error) {
 
 	proxy.Port = port
 
-	socksServer, err := socks5.New(&socks5.Config{Dial: func(ctx context.Context, network, addr string) (conn net.Conn, err error) {
+	config := &socks5.Config{}
+	config.Dial = func(ctx context.Context, network, addr string) (conn net.Conn, err error) {
 		return proxy.Dialer.Dial(network, addr)
-	}})
+	}
+	if len(dnsTarget) > 0 {
+		config.Resolver = proxy
+	}
+
+	socksServer, err := socks5.New(config)
 	if err != nil {
 		listener.Close()
 		return err
@@ -71,4 +77,19 @@ func (proxy *socks5Proxy) start(port int) (err error) {
 		socksServer.Serve(listener)
 	}()
 	return nil
+}
+
+// implements the socks5 NameResolver interface
+func (proxy *socks5Proxy) Resolve(ctx context.Context, name string) (context.Context, net.IP, error) {
+	customR := net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			return proxy.Dialer.Dial("tcp", dnsTarget)
+		},
+	}
+	ips, err := customR.LookupIP(ctx, "ip", name)
+	if err != nil {
+		return ctx, nil, err
+	}
+	return ctx, ips[0], nil
 }

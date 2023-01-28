@@ -12,6 +12,8 @@ import (
 
 var timeFormat = "2006-01-02 15:04:05"
 
+var dnsTarget = ""
+
 func init() {
 	RegisterProxyFactory("dns", newDNSProxy)
 }
@@ -79,6 +81,7 @@ func NewDNSProxy(dialer dialer.Dialer, port int, parameters string) (Proxy, erro
 
 	proxy := &dnsProxy{}
 	proxy.Port = port
+	dnsTarget = target
 	proxy.Dialer = dialer
 	go forwardDNS(listenAddr, target)
 	return proxy, nil
