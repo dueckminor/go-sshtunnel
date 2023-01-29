@@ -20,6 +20,8 @@ GOOS=linux GOARCH=amd64 go build "${ADDITIONAL_ARGS[@]}" -o "${DIR_ROOT}/gen/lin
 mkdir -p "${DIR_ROOT}/gen/linux_arm64"
 GOOS=linux GOARCH=arm64 go build "${ADDITIONAL_ARGS[@]}" -o "${DIR_ROOT}/gen/linux_arm64/sshtunnel" main.go
 
+go build "${ADDITIONAL_ARGS[@]}" -o "${DIR_ROOT}/gen/sshtunnel" main.go
+
 ADDITIONAL_TAR_ARGS=()
 if [[ "$(uname -s)" == "Linux" ]]; then
     ADDITIONAL_TAR_ARGS+=("--owner" "0")

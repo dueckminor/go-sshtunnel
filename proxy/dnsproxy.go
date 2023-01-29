@@ -1,21 +1,43 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"os"
 	"time"
 
 	"github.com/dueckminor/go-sshtunnel/dialer"
+	"github.com/dueckminor/go-sshtunnel/rules"
 	"github.com/miekg/dns"
 )
 
 var timeFormat = "2006-01-02 15:04:05"
 
 var dnsTarget = ""
+var dnsDialer dialer.Dialer
 
 func init() {
 	RegisterProxyFactory("dns", newDNSProxy)
+}
+
+func ResolveDNS(ctx context.Context, name string) (net.IP, error) {
+	dialer := dnsDialer
+	if dialer == nil {
+		dialer = rules.GetDefaultRuleSet()
+		dnsDialer = dialer
+	}
+	customR := net.Resolver{
+		PreferGo: true,
+		Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
+			return dialer.Dial("tcp", dnsTarget)
+		},
+	}
+	ips, err := customR.LookupIP(ctx, "ip", name)
+	if err != nil {
+		return nil, err
+	}
+	return ips[0], nil
 }
 
 type dnsProxy struct {
@@ -28,6 +50,7 @@ func (proxy *dnsProxy) GetPort() int {
 }
 
 func (proxy *dnsProxy) SetDialer(dialer dialer.Dialer) {
+	dnsDialer = dialer
 	proxy.Dialer = dialer
 }
 
@@ -82,6 +105,7 @@ func NewDNSProxy(dialer dialer.Dialer, port int, parameters string) (Proxy, erro
 	proxy := &dnsProxy{}
 	proxy.Port = port
 	dnsTarget = target
+	dnsDialer = dialer
 	proxy.Dialer = dialer
 	go forwardDNS(listenAddr, target)
 	return proxy, nil

@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -60,7 +61,9 @@ func (proxy *httpProxy) start(port int) (err error) {
 	server := &http.Server{
 		Addr: fmt.Sprintf(":%v", port),
 		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if r.Method == http.MethodConnect {
+			if r.Method == "RESOLVE" {
+				proxy.handleResolve(w, r)
+			} else if r.Method == http.MethodConnect {
 				proxy.handleTunneling(w, r)
 			} else {
 				proxy.handleHTTP(w, r)
@@ -115,6 +118,14 @@ func (proxy *httpProxy) handleHTTP(w http.ResponseWriter, req *http.Request) {
 	w.WriteHeader(resp.StatusCode)
 	io.Copy(w, resp.Body)
 }
+
+func (proxy *httpProxy) handleResolve(w http.ResponseWriter, req *http.Request) {
+	ip, err := ResolveDNS(context.Background(), req.Host)
+	fmt.Println(ip, err)
+	w.Header().Add("Host", ip.String())
+	w.WriteHeader(http.StatusOK)
+}
+
 func (proxy *httpProxy) copyHeader(dst, src http.Header) {
 	for k, vv := range src {
 		for _, v := range vv {
