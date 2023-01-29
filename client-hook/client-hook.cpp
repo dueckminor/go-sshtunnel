@@ -13,6 +13,9 @@
 #include <errno.h>
 #include <fcntl.h>
 
+// https://opensource.apple.com/source/dyld/dyld-210.2.3/include/mach-o/dyld-interposing.h
+#include "dyld-interposing.h"
+
 static bool s_bActive = false;
 static int s_port = 0;
 
@@ -283,12 +286,9 @@ extern "C" int my_connect(int fd, const struct sockaddr * addr, socklen_t len)
     return client.Request("CONNECT",szHostPort,szHostPort);
 }
 
-#define DYLD_INTERPOSE(_replacement,_replacee) \
-   __attribute__((used)) static struct{ const void* replacement; const void* replacee; } _interpose_##_replacee \
-            __attribute__ ((section ("__DATA,__interpose"))) = { (const void*)(unsigned long)&_replacement, (const void*)(unsigned long)&_replacee };
-
 DYLD_INTERPOSE(my_connect, connect)
-// DYLD_INTERPOSE(my_gethostbyname, gethostbyname)
 DYLD_INTERPOSE(my_getaddrinfo, getaddrinfo)
+
+// DYLD_INTERPOSE(my_gethostbyname, gethostbyname)
 
 

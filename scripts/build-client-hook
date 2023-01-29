@@ -7,6 +7,3 @@ DIR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.."; pwd)"
 mkdir -p "${DIR_ROOT}/gen"
 
 clang++ -o "${DIR_ROOT}/gen/libsshtunnel_client_hook.dylib" -shared "${DIR_ROOT}/client-hook/client-hook.cpp" -Wl,-sectcreate,__RESTRICT,__restrict,/dev/null
-
-echo "Executing test..."
-"${DIR_ROOT}/scripts/test-client-hook"
