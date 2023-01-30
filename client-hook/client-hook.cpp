@@ -12,28 +12,45 @@
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <stdarg.h>
 
 // https://opensource.apple.com/source/dyld/dyld-210.2.3/include/mach-o/dyld-interposing.h
 #include "dyld-interposing.h"
 
-static bool s_bActive = false;
+static bool s_active = false;
 static int s_port = 0;
+static bool s_debug = false;
+
+void trace(const char * format, ...)
+{
+    if (!s_debug)
+    {
+        return;
+    }
+    va_list args;
+    va_start(args, format);
+
+    vprintf(format,args);
+}
 
 __attribute__((constructor))
 static void __init__(int argc, const char **argv)
 {
-    //printf("# app: %s\n",argv[0]);
+    const char * debug = getenv("SSHTUNNEL_DEBUG");
+    s_debug = (debug && 0==strcmp(debug,"1"));
+
+    trace("# app: %s\n",argv[0]);
     const char * proxy = getenv("SSHTUNNEL_PROXY");
-    //printf("# prx: %s\n",proxy);
+    trace("# prx: %s\n",proxy);
 
     if (0==strncmp(proxy,"http://localhost:",17))
     {
         s_port = atoi(proxy+17);
-        //printf("# port: %d\n",s_port);
+        //trace("# port: %d\n",s_port);
     }
 
      syslog(LOG_INFO, "Dylib injection successful in %s\n", argv[0]);
-     s_bActive = true;
+     s_active = true;
 }
 
 class HttpClient
@@ -43,6 +60,7 @@ public:
     {
         m_fd = fd;
         m_dont_close = (fd>=0);
+        m_connected = false;
 
         memset(m_buffer,0,sizeof(m_buffer));
         memset(m_keys,0,sizeof(m_keys));
@@ -68,7 +86,7 @@ public:
             m_fd = socket(AF_INET, SOCK_STREAM, 0);
             if (m_fd < 0)
             {
-                //printf("\n socket failed \n");
+                //trace("\n socket failed \n");
                 return false;
             }
         }
@@ -79,7 +97,7 @@ public:
             serv_addr.sin_port = htons(s_port);
             if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0)
             {
-                //printf("\n inet_pton failed \n");
+                //trace("\n inet_pton failed \n");
                 return false;
             }
             int rc = connect(m_fd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
@@ -95,6 +113,7 @@ public:
     {
         if (!Connect())
         {
+            trace("failed to connect: %d\n",errno);
             return -1;
         }
         memset(m_buffer,0,sizeof(m_buffer));
@@ -105,6 +124,15 @@ public:
         memset(m_values,0,sizeof(m_values));
 
         int n=send(m_fd, m_buffer, strlen(m_buffer), 0);
+
+        trace("send(...,%lu) -> %d\n",strlen(m_buffer),n);
+        if (n<0) {
+            trace("errno: %d\n",errno);
+        }
+
+        //if (0==strcmp(method,"CONNECT"))
+        //    fsync(m_fd);
+
         memset(m_buffer,0,sizeof(m_buffer));
 
         for (char * p = m_buffer;p<m_buffer+sizeof(m_buffer)-1;)
@@ -138,12 +166,12 @@ public:
             p++;
         }
 
-        //printf("RESPONSE: %s\n",m_buffer);
-        // for (int i=1;i<m_nvalues;i++)
-        // {
-        //     printf("'%s'='%s'\n",m_keys[i],m_values[i]);
-        // }
-        //printf(">>>>\n");
+        trace("RESPONSE: %s\n",m_buffer);
+        for (int i=1;i<m_nvalues;i++)
+        {
+            trace("'%s'='%s'\n",m_keys[i],m_values[i]);
+        }
+        trace(">>>>\n");
         return 0;
     }
     const char * GetHeader(const char * key)
@@ -176,7 +204,7 @@ int my_getnameinfo(const struct sockaddr *addr, socklen_t addrlen,
                 char *host, socklen_t hostlen,
                 char *serv, socklen_t servlen, int flags)
 {
-    if (!s_bActive)
+    if (!s_active)
     {
         return getnameinfo(addr, addrlen, host, hostlen, serv, servlen, flags);
     }
@@ -185,11 +213,11 @@ int my_getnameinfo(const struct sockaddr *addr, socklen_t addrlen,
 
 // hostent * my_gethostbyname(const char * name)
 // {
-//     if (!s_bActive)
+//     if (!s_active)
 //     {
 //         return gethostbyname(name);
 //     }
-//     //printf("gethostbyname(%s)...\n",name);
+//     //trace("gethostbyname(%s)...\n",name);
 //     return gethostbyname(name);
 // }
 
@@ -204,7 +232,7 @@ bool getaddr(const char *hostname, const char * service, struct addrinfo ** res)
         return false;
     }
 
-    //printf("'%s' -> '%s:%s'\n",hostname,ip,service);
+    trace("'%s' -> '%s:%s'\n",hostname,ip,service);
 
     return (0 == getaddrinfo(ip,service,NULL,res));
 }
@@ -214,11 +242,11 @@ int my_getaddrinfo(const char *node,
                        const struct addrinfo * hints,
                        struct addrinfo ** res)
 {
-    if (!s_bActive)
+    if (!s_active)
     {
         return getaddrinfo(node,service,hints,res);
     }
-    //printf("getaddrinfo(%s,%s)...\n",node,service);
+    trace("getaddrinfo(%s,%s)...\n",node,service);
 
     if (getaddr(node,service,res))
     {
@@ -263,14 +291,15 @@ protected:
 
 extern "C" int my_connect(int fd, const struct sockaddr * addr, socklen_t len)
 {
-    if (!s_bActive)
+    if (!s_active)
     {
         return connect(fd,addr,len);
     }
-    //printf("connect(%d,...)...\n",fd);
+    trace("connect(%d,...)...\n",fd);
 
     if ((addr->sa_family != AF_INET) || (socket_get_type(fd) != SOCK_STREAM))
     {
+        trace("wrong socket");
         return connect(fd,addr,len);
     }
 
