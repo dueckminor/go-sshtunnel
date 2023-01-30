@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <syslog.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -14,8 +13,11 @@
 #include <fcntl.h>
 #include <stdarg.h>
 
+#ifdef __APPLE__
+#include <syslog.h>
 // https://opensource.apple.com/source/dyld/dyld-210.2.3/include/mach-o/dyld-interposing.h
 #include "dyld-interposing.h"
+#endif
 
 static bool s_active = false;
 static int s_port = 0;
@@ -33,6 +35,37 @@ void trace(const char * format, ...)
     vprintf(format,args);
 }
 
+#ifdef __APPLE__
+#define sys_connect connect
+#define sys_getaddrinfo getaddrinfo
+#else
+#define my_connect connect
+#define my_getaddrinfo getaddrinfo
+typedef int (connect_t)(int fd, const struct sockaddr * addr, socklen_t len);
+typedef int (getaddrinfo_t)(const char *node, const char * service, const struct addrinfo * hints, struct addrinfo ** res);
+
+static int sys_connect(int fd, const struct sockaddr * addr, socklen_t len)
+{
+    static connect_t * connect_p = NULL;
+    if (!connect_p)
+    {
+        connect_p = (connect_t*)dlsym(RTLD_NEXT, "connect");
+    }
+    return (connect_p)(fd, addr,len);
+}
+
+static int sys_getaddrinfo(const char *node, const char * service, const struct addrinfo * hints, struct addrinfo ** res)
+{
+    static getaddrinfo_t * getaddrinfo_p = NULL;
+    if (!getaddrinfo_p)
+    {
+        getaddrinfo_p = (getaddrinfo_t*)dlsym(RTLD_NEXT, "getaddrinfo");
+    }
+    return (getaddrinfo_p)(node, service, hints, res);
+}
+#endif
+
+
 __attribute__((constructor))
 static void __init__(int argc, const char **argv)
 {
@@ -43,14 +76,18 @@ static void __init__(int argc, const char **argv)
     const char * proxy = getenv("SSHTUNNEL_PROXY");
     trace("# prx: %s\n",proxy);
 
-    if (0==strncmp(proxy,"http://localhost:",17))
+    if ((NULL != proxy) && (0==strncmp(proxy,"http://localhost:",17)))
     {
         s_port = atoi(proxy+17);
         //trace("# port: %d\n",s_port);
     }
-
-     syslog(LOG_INFO, "Dylib injection successful in %s\n", argv[0]);
-     s_active = true;
+#ifdef __APPLE__
+    syslog(LOG_INFO, "Dylib injection successful in %s\n", argv[0]);
+#endif
+    if (s_port > 0)
+    {
+        s_active = true;
+    }
 }
 
 class HttpClient
@@ -100,7 +137,7 @@ public:
                 //trace("\n inet_pton failed \n");
                 return false;
             }
-            int rc = connect(m_fd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+            int rc = sys_connect(m_fd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
             if (rc < 0)
             {
                 return false;
@@ -234,7 +271,7 @@ bool getaddr(const char *hostname, const char * service, struct addrinfo ** res)
 
     trace("'%s' -> '%s:%s'\n",hostname,ip,service);
 
-    return (0 == getaddrinfo(ip,service,NULL,res));
+    return (0 == sys_getaddrinfo(ip,service,NULL,res));
 }
 
 int my_getaddrinfo(const char *node,
@@ -244,7 +281,7 @@ int my_getaddrinfo(const char *node,
 {
     if (!s_active)
     {
-        return getaddrinfo(node,service,hints,res);
+        return sys_getaddrinfo(node,service,hints,res);
     }
     trace("getaddrinfo(%s,%s)...\n",node,service);
 
@@ -253,7 +290,7 @@ int my_getaddrinfo(const char *node,
         return 0;
     }
 
-    return getaddrinfo(node,service,hints,res);
+    return sys_getaddrinfo(node,service,hints,res);
 }
 
 int socket_get_type(int fd)
@@ -293,14 +330,13 @@ extern "C" int my_connect(int fd, const struct sockaddr * addr, socklen_t len)
 {
     if (!s_active)
     {
-        return connect(fd,addr,len);
+        return sys_connect(fd,addr,len);
     }
     trace("connect(%d,...)...\n",fd);
 
     if ((addr->sa_family != AF_INET) || (socket_get_type(fd) != SOCK_STREAM))
     {
-        trace("wrong socket");
-        return connect(fd,addr,len);
+        return sys_connect(fd,addr,len);
     }
 
     SocketMakeBlocking make_blocking(fd);
@@ -315,9 +351,9 @@ extern "C" int my_connect(int fd, const struct sockaddr * addr, socklen_t len)
     return client.Request("CONNECT",szHostPort,szHostPort);
 }
 
+#ifdef __APPLE__
 DYLD_INTERPOSE(my_connect, connect)
 DYLD_INTERPOSE(my_getaddrinfo, getaddrinfo)
-
 // DYLD_INTERPOSE(my_gethostbyname, gethostbyname)
-
+#endif
 
