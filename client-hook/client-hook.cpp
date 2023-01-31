@@ -22,6 +22,7 @@
 static bool s_active = false;
 static int s_port = 0;
 static bool s_debug = false;
+static struct sockaddr_in s_serv_addr;
 
 void trace(const char * format, ...)
 {
@@ -32,7 +33,10 @@ void trace(const char * format, ...)
     va_list args;
     va_start(args, format);
 
-    vprintf(format,args);
+    vfprintf(stderr,format,args);
+#ifdef __APPLE__
+    vsyslog(LOG_INFO, format, args);
+#endif
 }
 
 #ifdef __APPLE__
@@ -76,28 +80,42 @@ static void __init__(int argc, const char **argv)
     const char * proxy = getenv("SSHTUNNEL_PROXY");
     trace("# prx: %s\n",proxy);
 
-    if ((NULL != proxy) && (0==strncmp(proxy,"http://localhost:",17)))
+    if ((NULL != proxy) && ((0==strncmp(proxy,"http://localhost:",17)) || (0==strncmp(proxy,"http://127.0.0.1:",17))))
     {
         s_port = atoi(proxy+17);
-        //trace("# port: %d\n",s_port);
     }
-#ifdef __APPLE__
-    syslog(LOG_INFO, "Dylib injection successful in %s\n", argv[0]);
-#endif
     if (s_port > 0)
     {
+        s_serv_addr.sin_family = AF_INET;
+        s_serv_addr.sin_port = htons(s_port);
+        if (inet_pton(AF_INET, "127.0.0.1", &s_serv_addr.sin_addr) <= 0)
+        {
+            return;
+        }
         s_active = true;
     }
 }
 
 class HttpClient
 {
+protected:
+    // handle the socket connection
+    int m_fd;
+    bool m_dont_close;
+    bool m_connected;
+    int m_old_flags;
+    // store the HTTP-Headers
+    char m_buffer[1024];
+    const char* m_keys[32];
+    const char* m_values[32];
+    int m_nvalues;
 public:
     HttpClient(int fd=-1)
     {
         m_fd = fd;
         m_dont_close = (fd>=0);
         m_connected = false;
+        m_old_flags=0;
 
         memset(m_buffer,0,sizeof(m_buffer));
         memset(m_keys,0,sizeof(m_keys));
@@ -107,6 +125,10 @@ public:
 
     ~HttpClient()
     {
+        if (m_old_flags & O_NONBLOCK)
+        {
+            fcntl(m_fd, F_SETFL, m_old_flags);
+        }
         if (m_dont_close)
         {
             return;
@@ -116,6 +138,16 @@ public:
             close(m_fd);
         }
     }
+
+    void SocketMakeBlocking()
+    {
+        m_old_flags = fcntl(m_fd, F_GETFL);
+        if (m_old_flags & O_NONBLOCK)
+        {
+            fcntl(m_fd, F_SETFL, m_old_flags & ~O_NONBLOCK);
+        }
+    }
+
     bool Connect()
     {
         if (m_fd < 0)
@@ -129,15 +161,7 @@ public:
         }
         if (!m_connected)
         {
-            struct sockaddr_in serv_addr;
-            serv_addr.sin_family = AF_INET;
-            serv_addr.sin_port = htons(s_port);
-            if (inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr) <= 0)
-            {
-                //trace("\n inet_pton failed \n");
-                return false;
-            }
-            int rc = sys_connect(m_fd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+            int rc = sys_connect(m_fd, (struct sockaddr*)&s_serv_addr, sizeof(s_serv_addr));
             if (rc < 0)
             {
                 return false;
@@ -166,9 +190,6 @@ public:
         if (n<0) {
             trace("errno: %d\n",errno);
         }
-
-        //if (0==strcmp(method,"CONNECT"))
-        //    fsync(m_fd);
 
         memset(m_buffer,0,sizeof(m_buffer));
 
@@ -226,55 +247,18 @@ public:
         }
         return NULL;
     }
-
-protected:
-    bool m_dont_close;
-    bool m_connected;
-    int m_fd;
-    char m_buffer[1024];
-    const char* m_keys[32];
-    const char* m_values[32];
-    int m_nvalues;
 };
 
-int my_getnameinfo(const struct sockaddr *addr, socklen_t addrlen,
-                char *host, socklen_t hostlen,
-                char *serv, socklen_t servlen, int flags)
+static int socket_get_type(int fd)
 {
-    if (!s_active)
-    {
-        return getnameinfo(addr, addrlen, host, hostlen, serv, servlen, flags);
-    }
-    return getnameinfo(addr, addrlen, host, hostlen, serv, servlen, flags);
+    int sock_type = -1;
+    socklen_t sock_type_len = sizeof(sock_type);
+    getsockopt(fd, SOL_SOCKET, SO_TYPE,
+        (void *) &sock_type, &sock_type_len);
+    return sock_type;
 }
 
-// hostent * my_gethostbyname(const char * name)
-// {
-//     if (!s_active)
-//     {
-//         return gethostbyname(name);
-//     }
-//     //trace("gethostbyname(%s)...\n",name);
-//     return gethostbyname(name);
-// }
-
-bool getaddr(const char *hostname, const char * service, struct addrinfo ** res)
-{
-    HttpClient client;
-    client.Request("RESOLVE","*",hostname);
-
-    const char * ip = client.GetHeader("Host");
-    if (!ip)
-    {
-        return false;
-    }
-
-    trace("'%s' -> '%s:%s'\n",hostname,ip,service);
-
-    return (0 == sys_getaddrinfo(ip,service,NULL,res));
-}
-
-int my_getaddrinfo(const char *node,
+extern "C" int my_getaddrinfo(const char *node,
                        const char * service,
                        const struct addrinfo * hints,
                        struct addrinfo ** res)
@@ -285,46 +269,16 @@ int my_getaddrinfo(const char *node,
     }
     trace("getaddrinfo(%s,%s)...\n",node,service);
 
-    if (getaddr(node,service,res))
+    HttpClient client;
+    client.Request("RESOLVE","*",node);
+    const char * ip = client.GetHeader("Host");
+    if (ip != NULL)
     {
-        return 0;
+        node = ip;
     }
 
     return sys_getaddrinfo(node,service,hints,res);
 }
-
-int socket_get_type(int fd)
-{
-    int sock_type = -1;
-    socklen_t sock_type_len = sizeof(sock_type);
-    getsockopt(fd, SOL_SOCKET, SO_TYPE,
-        (void *) &sock_type, &sock_type_len);
-    return sock_type;
-}
-
-class SocketMakeBlocking
-{
-public:
-    SocketMakeBlocking(int fd)
-    {
-        m_fd = fd;
-        m_flags = fcntl(m_fd, F_GETFL);
-        if (m_flags & O_NONBLOCK)
-        {
-            fcntl(m_fd, F_SETFL, m_flags & ~O_NONBLOCK);
-        }
-    }
-    ~SocketMakeBlocking()
-    {
-        if (m_flags & O_NONBLOCK)
-        {
-            fcntl(m_fd, F_SETFL, m_flags);
-        }
-    }
-protected:
-    int m_fd;
-    int m_flags;
-};
 
 extern "C" int my_connect(int fd, const struct sockaddr * addr, socklen_t len)
 {
@@ -339,8 +293,6 @@ extern "C" int my_connect(int fd, const struct sockaddr * addr, socklen_t len)
         return sys_connect(fd,addr,len);
     }
 
-    SocketMakeBlocking make_blocking(fd);
-
     char szHostIP[32]="";
     struct sockaddr_in * addr_in = (struct sockaddr_in *)addr;
     inet_ntop(AF_INET, &(addr_in->sin_addr), szHostIP, 31);
@@ -348,6 +300,7 @@ extern "C" int my_connect(int fd, const struct sockaddr * addr, socklen_t len)
     snprintf(szHostPort,63,"%s:%i",szHostIP,ntohs(addr_in->sin_port));
 
     HttpClient client(fd);
+    client.SocketMakeBlocking();
     return client.Request("CONNECT",szHostPort,szHostPort);
 }
 
