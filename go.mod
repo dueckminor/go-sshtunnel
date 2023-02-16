@@ -8,7 +8,7 @@ require (
 	github.com/gin-gonic/gin v1.8.2
 	github.com/manifoldco/promptui v0.9.0
 	github.com/miekg/dns v1.1.50
-	golang.org/x/crypto v0.5.0
+	golang.org/x/crypto v0.6.0
 	golang.org/x/net v0.7.0
 )
 
