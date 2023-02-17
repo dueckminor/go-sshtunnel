@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"strconv"
 
@@ -59,6 +60,7 @@ func (proxy *socks5Proxy) start(port int) (err error) {
 	proxy.Port = port
 
 	config := &socks5.Config{}
+	config.Rewriter = proxy
 	config.Dial = func(ctx context.Context, network, addr string) (conn net.Conn, err error) {
 		return proxy.Dialer.Dial(network, addr)
 	}
@@ -81,6 +83,17 @@ func (proxy *socks5Proxy) start(port int) (err error) {
 
 // implements the socks5 NameResolver interface
 func (proxy *socks5Proxy) Resolve(ctx context.Context, name string) (context.Context, net.IP, error) {
+	fmt.Printf("SOCKS5: resolving '%s'...\n", name)
 	ip, err := ResolveDNS(ctx, name)
+	if err != nil {
+		fmt.Printf("SOCKS5: resolving '%s' failed: %v\n", name, err)
+	} else {
+		fmt.Printf("SOCKS5: resolving '%s' -> %v\n", name, ip.String())
+	}
 	return ctx, ip, err
+}
+
+func (proxy *socks5Proxy) Rewrite(ctx context.Context, request *socks5.Request) (context.Context, *socks5.AddrSpec) {
+	fmt.Printf("SOCKS5: connect to '%v'...\n", request.DestAddr.String())
+	return ctx, request.DestAddr
 }
