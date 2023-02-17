@@ -80,8 +80,15 @@ func (proxy *httpProxy) start(port int) (err error) {
 }
 
 func (proxy *httpProxy) handleTunneling(w http.ResponseWriter, r *http.Request) {
-	dest_conn, err := proxy.Dialer.Dial("tcp", r.Host)
-	//net.DialTimeout("tcp", r.Host, 10*time.Second)
+	ip, err := ResolveDNS(context.Background(), r.URL.Hostname())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusServiceUnavailable)
+		return
+	}
+	addr := fmt.Sprintf("%v:%v", ip, r.URL.Port())
+
+	dest_conn, err := proxy.Dialer.Dial("tcp", addr)
+
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusServiceUnavailable)
 		return
