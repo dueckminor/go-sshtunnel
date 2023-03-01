@@ -19,6 +19,12 @@ import (
 	"golang.org/x/crypto/ssh/agent"
 )
 
+func quote(input string) string {
+	input = strings.Replace(input, "\n", "", -1)
+	input = strings.Replace(input, "\r", "", -1)
+	return strconv.Quote(input)
+}
+
 type SSHAddress struct {
 	user string
 	host string
@@ -104,7 +110,7 @@ func (sshDialer *SSHDialer) GetSSHKeys() (keys []control.SSHKey, err error) {
 }
 
 func (sshDialer *SSHDialer) AddDialer(uri string) error {
-	logger.L.Printf("uri: %s\n", strconv.Quote(uri))
+	logger.L.Printf("uri: %s\n", quote(uri))
 	if !strings.Contains(uri, "://") {
 		uri = "ssh://" + uri
 	}
@@ -125,8 +131,8 @@ func (sshDialer *SSHDialer) AddDialer(uri string) error {
 		sshDialer.config.User = address.user
 	}
 
-	logger.L.Printf("address.user: %s\n", strconv.Quote(address.user))
-	logger.L.Printf("address.host: %s\n", strconv.Quote(address.host))
+	logger.L.Printf("address.user: %s\n", quote(address.user))
+	logger.L.Printf("address.host: %s\n", quote(address.host))
 
 	sshDialer.addresses = append(sshDialer.addresses, address)
 
@@ -144,7 +150,7 @@ func (sshDialer *SSHDialer) Dial(network, addr string) (net.Conn, error) {
 			return c, nil
 		}
 		// reconnect if required
-		log.Printf("dial %s failed: %s, reconnecting ssh server %v...\n", strconv.Quote(addr), err, sshDialer.addresses)
+		log.Printf("dial %s failed: %s, reconnecting ssh server %v...\n", quote(addr), err, sshDialer.addresses)
 
 		if _, ok := err.(*ssh.OpenChannelError); ok {
 			// we this kind of error, if the sshtunnel is up and running,
