@@ -7,7 +7,7 @@ require (
 	github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5
 	github.com/gin-gonic/gin v1.9.0
 	github.com/manifoldco/promptui v0.9.0
-	github.com/miekg/dns v1.1.53
+	github.com/miekg/dns v1.1.54
 	golang.org/x/crypto v0.8.0
 	golang.org/x/net v0.9.0
 )
