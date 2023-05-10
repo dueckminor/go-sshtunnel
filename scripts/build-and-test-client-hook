@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+set -e
+
+DIR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.."; pwd)"
+
+"${DIR_ROOT}/scripts/build-client-hook"
+
+echo "Executing test..."
+"${DIR_ROOT}/scripts/test-client-hook"

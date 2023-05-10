@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+
+set -e
+
+DIR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.."; pwd)"
+
+GetHttpPort() {
+    "${DIR_ROOT}/gen/sshtunnel" list-proxies | yaml2json | jq -r '.proxies[] | select(.type=="http") | .port'
+}
+
+HTTP_PORT="$(GetHttpPort)"
+
+echo "Using HTTP-Proxy at port ${HTTP_PORT}"
+
+export SSHTUNNEL_PROXY="http://localhost:${HTTP_PORT}"
+export DYLD_INSERT_LIBRARIES="${DIR_ROOT}/gen/libsshtunnel_client_hook.dylib"
+export DYLD_FORCE_FLAT_NAMESPACE=1
+
+if [[ -e "${DIR_ROOT}/gen/curl" ]]; then
+    "${DIR_ROOT}/gen/curl" -k https://credhub.landscape-credhub.internal:8844/health
+else
+    wget -q --output-document /dev/stdout https://credhub.landscape-credhub.internal:8844/health
+fi

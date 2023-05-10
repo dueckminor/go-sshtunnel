@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+set -e
+
+DIR_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.."; pwd)"
+
+mkdir -p "${DIR_ROOT}/gen"
+
+if [[ "$(uname -s)" == "Linux" ]]; then
+    g++ -o "${DIR_ROOT}/gen/libsshtunnel_client_hook.so" -ldl -shared "${DIR_ROOT}/client-hook/client-hook.cpp"
+else
+    clang++ -o "${DIR_ROOT}/gen/libsshtunnel_client_hook.dylib" -shared "${DIR_ROOT}/client-hook/client-hook.cpp" -Wl,-sectcreate,__RESTRICT,__restrict,/dev/null
+fi
