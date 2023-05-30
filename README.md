@@ -49,7 +49,7 @@ Listen on a local UDP port and forward DNS requests over TCP to a target address
 As the tunnel itself only supports TCP, sshtunnel translates from UDP to TCP.
 
 ```bash
-sshtunnel start-proxy dns --target=127.0.0.53:53
+sshtunnel start-proxy dns 127.0.0.53:53
 ```
 
 ## Rules
