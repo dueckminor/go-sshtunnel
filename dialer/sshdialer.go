@@ -26,9 +26,8 @@ func quote(input string) string {
 }
 
 type SSHAddress struct {
-	user     string
-	host     string
-	jumphost *SSHAddress
+	user string
+	host string
 }
 
 type SSHDialer struct {
@@ -134,14 +133,6 @@ func (sshDialer *SSHDialer) AddDialer(uri string) error {
 
 	logger.L.Printf("address.user: %s\n", quote(address.user))
 	logger.L.Printf("address.host: %s\n", quote(address.host))
-
-	jumphost := sshURL.Query().Get("jumphost")
-	if len(jumphost) > 0 {
-		address.jumphost = &SSHAddress{
-			user: address.user,
-			host: jumphost,
-		}
-	}
 
 	sshDialer.addresses = append(sshDialer.addresses, address)
 
