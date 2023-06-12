@@ -2,6 +2,7 @@ package rules
 
 import (
 	"net"
+	"strings"
 
 	"github.com/dueckminor/go-sshtunnel/dialer"
 
@@ -30,7 +31,15 @@ func Marshall(rule Rule) control.Rule {
 
 // UnMarshall converts the wire-Format (JSON) to a Rule
 func UnMarshall(rule control.Rule) (Rule, error) {
-	_, IPNet, err := net.ParseCIDR(rule.CIDR)
+	var IPNet *net.IPNet
+	var err error
+
+	cidr := rule.CIDR
+	if !strings.Contains(cidr, "/") {
+		cidr = cidr + "/32"
+	}
+
+	_, IPNet, err = net.ParseCIDR(cidr)
 
 	result := Rule{
 		IPNet:  IPNet,
