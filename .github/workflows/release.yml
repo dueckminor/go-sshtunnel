@@ -9,42 +9,22 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     steps:
-      - name: Set up Go 1.19
+      - name: Set up Go 1.21
         uses: actions/setup-go@v4
         with:
-          go-version: 1.19
+          go-version: 1.21
         id: go
 
       - name: Check out code into the Go module directory
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Build
-        run: |
-          export GOPATH="${RUNNER_WORKSPACE}"
-          ./scripts/build ${{ github.ref }}
-
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@latest
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # This token is provided by Actions, you do not need to create your own token
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v4
         with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          body: |
-            Changes in this Release
-            - Todo...
-          draft: false
-          prerelease: false
-
-      - name: Upload Release Assets
-        id: upload-release-assets
-        uses: dwenegar/upload-release-assets@v1
+          distribution: goreleaser
+          version: latest
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          release_id: ${{ steps.create_release.outputs.id }}
-          assets_path: ./gen/assets
 
   docker:
     name: Docker
