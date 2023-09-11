@@ -1,0 +1,54 @@
+before:
+  hooks:
+    # You may remove this if you don't use go modules.
+    - go mod download
+
+builds:
+  - targets:
+      - linux_amd64
+      - linux_arm64
+      - darwin_amd64
+      - darwin_arm64
+    main: main.go
+    binary: sshtunnel
+
+archives:
+  - id: binary
+    format: tar.gz
+    name_template: >-
+      {{- if eq .ProjectName "go-sshtunnel" }}sshtunnel-
+      {{- else }}{{ .ProjectName }}-{{ end }}
+      {{- title .Version }}-
+      {{- .Os }}-
+      {{- .Arch }}
+    files:
+      - README*
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+
+release:
+  draft: false
+  github:
+    owner: dueckminor
+    name: go-sshtunnel
+
+brews:
+  -
+    folder: Formula
+    homepage: "https://github.com/dueckminor/go-sshtunnel/"
+    description: "A tiny ssh tunnel implemented in GO. It's main purpose is to establish an SSH connection from a Docker container to a jumpbox and redirect all outgoing TCP traffic over this connection."
+    test: |
+      system "#{bin}/sshtunnel --version"
+    install: |
+      bin.install "sshtunnel"
+    repository:
+      owner: dueckminor
+      name: go-sshtunnel
