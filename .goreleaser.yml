@@ -51,4 +51,4 @@ brews:
       bin.install "sshtunnel"
     repository:
       owner: dueckminor
-      name: go-sshtunnel
+      name: go-sshtunnel-homebrew
