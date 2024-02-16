@@ -11,6 +11,8 @@ builds:
       - darwin_arm64
     main: main.go
     binary: sshtunnel
+  ldflags:
+    - -X github.com/dueckminor/go-sshtunnel/commands.version={{.Version}}
 
 archives:
   - id: binary
