@@ -1,6 +1,7 @@
 # go-sshtunnel
 
 ![build](https://github.com/dueckminor/go-sshtunnel/workflows/build/badge.svg)
+![integration-test](https://github.com/dueckminor/go-sshtunnel/workflows/integration-test/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/dueckminor/go-sshtunnel)](https://goreportcard.com/report/github.com/dueckminor/go-sshtunnel)
 
 This is a tiny ssh tunnel implemented in GO. It's main purpose is to establish an SSH connection from a Docker container to a jumpbox and redirect all outgoing TCP traffic over this connection.
@@ -62,7 +63,7 @@ sshtunnel add-rule <ip-address/network>
 
 ## Dialers
 
-Finally the dialers forwards the requests (via SSH) to its destination.
+Finally, the dialers forwards the requests (via SSH) to its destination.
 
 ```bash
 sshtunnel add-ssh-key <ssh_key_file>
@@ -83,6 +84,48 @@ It's also possible to use an existing socks5 proxy to establish connections:
 ```bash
 sshtunnel add-dialer socks5://<hostname>:<port>
 ```
+
+### Host Key Verification
+
+`sshtunnel` validates the SSH server's host key against `~/.ssh/known_hosts`,
+following the same security model as the OpenSSH client. This protects against
+Machine-in-the-Middle (MitM) attacks.
+
+**Best case:** the target host already has an entry in `~/.ssh/known_hosts`
+(e.g. because you connected to it before with `ssh`). In this case the
+connection is established silently without any prompt.
+
+If the host is **not yet known**, `sshtunnel` behaves just like an interactive
+`ssh` session:
+
+- The SHA-256 fingerprint of the server's public key is displayed.
+- You are asked to confirm whether you trust the host.
+- On confirmation, the key is permanently added to `~/.ssh/known_hosts`.
+- On rejection, the connection is aborted.
+
+If a **key mismatch** is detected (i.e. the server presents a different key
+than the one stored in `known_hosts`), the connection is **always aborted**,
+regardless of whether the session is interactive or not. This is intentional
+and protects against active MitM attacks.
+
+> **Tip:** To pre-populate `known_hosts` without opening a tunnel, simply
+> connect to the host once with the regular `ssh` client:
+> ```bash
+> ssh <username>@<hostname>
+> ```
+
+#### Non-Interactive Mode
+
+For automated environments (CI/CD, scripts, etc.) where no user interaction
+is possible, use the `--accept-host-keys` flag:
+
+```bash
+sshtunnel connect --accept-host-keys
+```
+
+This automatically accepts unknown host keys and adds them to `~/.ssh/known_hosts`
+without prompting. **Important:** MitM protection remains active — if a key
+mismatch is detected, the connection is still rejected immediately.
 
 # Release builds
 

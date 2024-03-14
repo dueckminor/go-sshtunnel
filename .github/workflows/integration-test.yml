@@ -1,0 +1,174 @@
+name: integration-test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [master]
+  schedule:
+    - cron: '0 3 * * 3'
+
+jobs:
+  integration-test:
+    name: Integration Test (Host Key Verification)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Build
+        run: go build -o gen/sshtunnel main.go
+
+      - name: Generate test SSH client key
+        run: |
+          mkdir -p /tmp/sshtunnel-test
+          ssh-keygen -t ed25519 -f /tmp/sshtunnel-test/id_ed25519 -N "" -q
+
+      - name: Start OpenSSH server (Docker)
+        run: |
+          docker run -d --name sshtunnel-test \
+            -p 2222:2222 \
+            -e PUBLIC_KEY="$(cat /tmp/sshtunnel-test/id_ed25519.pub)" \
+            -e USER_NAME=testuser \
+            linuxserver/openssh-server:latest
+          echo "Waiting for SSH server to be ready..."
+          sleep 8
+
+      - name: Create empty known_hosts (runner has none by default)
+        run: |
+          mkdir -p ~/.ssh
+          touch ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Write helper script
+        run: |
+          cat > /tmp/sshtunnel-helpers.sh <<'EOF'
+          stop_daemon() {
+            pkill -f "sshtunnel daemon" 2>/dev/null || true
+            rm -f /tmp/sshtunnel.pid /tmp/sshtunnel.sock
+            sleep 0.3
+          }
+
+          start_daemon() {
+            stop_daemon
+            # known_hosts MUST be cleaned BEFORE starting the daemon,
+            # because it reads the file once at startup.
+            ./gen/sshtunnel daemon > /tmp/sshtunnel-daemon.log 2>&1 &
+            sleep 1
+            ./gen/sshtunnel add-ssh-key /tmp/sshtunnel-test/id_ed25519
+            ./gen/sshtunnel add-dialer testuser@127.0.0.1:2222
+            sleep 0.3
+          }
+          EOF
+
+      - name: "Test 1: Non-interactive mode (--accept-host-keys)"
+        run: |
+          source /tmp/sshtunnel-helpers.sh
+          ssh-keygen -R '[127.0.0.1]:2222' 2>/dev/null || true
+          start_daemon
+
+          timeout 15 ./gen/sshtunnel connect --accept-host-keys
+          echo "Exit: $?"
+
+          echo "Key added to known_hosts?"
+          grep "127.0.0.1" ~/.ssh/known_hosts || (echo "FAIL: key not found in known_hosts" && exit 1)
+          echo "✓ PASS"
+
+      - name: "Test 2: Known host (no prompt, direct connection)"
+        run: |
+          source /tmp/sshtunnel-helpers.sh
+          # Key is now in known_hosts from Test 1 – daemon starts with it loaded
+          start_daemon
+
+          timeout 15 ./gen/sshtunnel connect
+          echo "Exit: $?"
+          echo "✓ PASS"
+
+      - name: "Test 3: MitM attack (key mismatch → always rejected)"
+        run: |
+          source /tmp/sshtunnel-helpers.sh
+          ssh-keygen -R '[127.0.0.1]:2222' 2>/dev/null || true
+          ssh-keygen -t ed25519 -f /tmp/sshtunnel-test/fake_host_key -N "" -q
+          echo "[127.0.0.1]:2222 $(cat /tmp/sshtunnel-test/fake_host_key.pub)" >> ~/.ssh/known_hosts
+          start_daemon
+
+          set +e
+          timeout 15 ./gen/sshtunnel connect --accept-host-keys
+          EXITCODE=$?
+          set -e
+
+          if [ "$EXITCODE" -ne 0 ]; then
+            echo "✓ PASS: MitM correctly rejected (exit $EXITCODE)"
+          else
+            echo "FAIL: MitM should have been rejected!"
+            exit 1
+          fi
+
+      - name: "Test 4: Interactive mode – user types 'yes'"
+        run: |
+          source /tmp/sshtunnel-helpers.sh
+          ssh-keygen -R '[127.0.0.1]:2222' 2>/dev/null || true
+          start_daemon
+
+          set +e
+          echo "yes" | timeout 15 ./gen/sshtunnel connect
+          EXITCODE=$?
+          set -e
+
+          if [ "$EXITCODE" -eq 0 ]; then
+            echo "✓ PASS: interactive 'yes' accepted"
+          else
+            echo "FAIL: connection should have succeeded after 'yes'"
+            exit 1
+          fi
+
+          echo "Key added to known_hosts?"
+          grep "127.0.0.1" ~/.ssh/known_hosts || (echo "FAIL: key not found in known_hosts" && exit 1)
+          echo "✓ Key persisted"
+
+      - name: "Test 5: Interactive mode – user types 'no'"
+        run: |
+          source /tmp/sshtunnel-helpers.sh
+          ssh-keygen -R '[127.0.0.1]:2222' 2>/dev/null || true
+          start_daemon
+
+          set +e
+          echo "no" | timeout 15 ./gen/sshtunnel connect
+          EXITCODE=$?
+          set -e
+
+          if [ "$EXITCODE" -ne 0 ]; then
+            echo "✓ PASS: interactive 'no' rejected (exit $EXITCODE)"
+          else
+            echo "FAIL: connection should have been rejected after 'no'"
+            exit 1
+          fi
+
+          if grep -q "127.0.0.1" ~/.ssh/known_hosts 2>/dev/null; then
+            echo "FAIL: key must NOT be added to known_hosts after rejection"
+            exit 1
+          fi
+          echo "✓ Key not persisted"
+
+      - name: Cleanup
+        if: always()
+        run: |
+          pkill -f "sshtunnel daemon" 2>/dev/null || true
+          docker rm -f sshtunnel-test 2>/dev/null || true
+          rm -f /tmp/sshtunnel.pid /tmp/sshtunnel.sock
+
+      - name: Upload daemon log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daemon-log
+          path: /tmp/sshtunnel-daemon.log
+          if-no-files-found: ignore
+
