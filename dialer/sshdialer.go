@@ -77,7 +77,7 @@ func passPhraseToBuffer(passPhrase string) []byte {
 	}
 }
 
-// CheckSSHKey/ verifies that the encodedKey can be decoded and converts it
+// CheckSSHKey verifies that the encodedKey can be decoded and converts it
 // to a format that ssh.ParsePrivateKeyWithPassphrase can parse
 func CheckSSHKey(encodedKey string, passPhrase string) error {
 	_, err := sshkeys.ParseEncryptedPrivateKey([]byte(encodedKey), passPhraseToBuffer(passPhrase))
