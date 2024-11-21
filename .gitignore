@@ -5,3 +5,5 @@ build-arm64/**
 tmp/**
 vendor/**
 gen/**
+.idea
+.DS_Store

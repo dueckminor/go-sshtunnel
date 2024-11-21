@@ -62,7 +62,7 @@ sshtunnel add-rule <ip-address/network>
 
 ## Dialers
 
-Finally the dialers forwards the requests (via SSH) to its destination.
+Finally, the dialers forwards the requests (via SSH) to its destination.
 
 ```bash
 sshtunnel add-ssh-key <ssh_key_file>
