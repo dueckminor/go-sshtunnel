@@ -3,7 +3,7 @@ module github.com/dueckminor/go-sshtunnel
 go 1.23
 
 require (
-	github.com/ScaleFT/sshkeys v1.2.0
+	github.com/ScaleFT/sshkeys v1.3.0
 	github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5
 	github.com/gin-gonic/gin v1.10.0
 	github.com/manifoldco/promptui v0.9.0
