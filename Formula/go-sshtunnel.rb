@@ -9,16 +9,16 @@ class GoSshtunnel < Formula
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/dueckminor/go-sshtunnel/releases/download/v1.8/sshtunnel-1.8-darwin-arm64.tar.gz"
-      sha256 "d192ba44874ac425e8b6c2995f911c497d01bc34c4daedc749cc4f830acbe98d"
+      url "https://github.com/dueckminor/go-sshtunnel/releases/download/v1.8/sshtunnel-1.9-darwin-arm64.tar.gz"
+      sha256 "d5ac0f709d611e272037336b6058f3f1496c0b4c44407c32dfffcddbca0632cc"
 
       def install
         bin.install "sshtunnel"
       end
     end
     if Hardware::CPU.intel?
-      url "https://github.com/dueckminor/go-sshtunnel/releases/download/v1.8/sshtunnel-1.8-darwin-amd64.tar.gz"
-      sha256 "8c8e3fb38db91f1f834cc0511b868d578b8b428f8d000e15571a6a1806b71b36"
+      url "https://github.com/dueckminor/go-sshtunnel/releases/download/v1.8/sshtunnel-1.9-darwin-amd64.tar.gz"
+      sha256 "eb39bbd1dcadfef81e8a45dd40f5f639558154217a086245d040a75bd8e12a2c"
 
       def install
         bin.install "sshtunnel"
@@ -28,16 +28,16 @@ class GoSshtunnel < Formula
 
   on_linux do
     if Hardware::CPU.arm? && Hardware::CPU.is_64_bit?
-      url "https://github.com/dueckminor/go-sshtunnel/releases/download/v1.8/sshtunnel-1.8-linux-arm64.tar.gz"
-      sha256 "5990fb0f34cf1b469f75fd309a31bf5c18860099cdb7ad2d6a83c710530c2620"
+      url "https://github.com/dueckminor/go-sshtunnel/releases/download/v1.8/sshtunnel-1.9-linux-arm64.tar.gz"
+      sha256 "abf05764f68869eabf51437a336a34e13d705f9bb4000419c8eb046b1185a452"
 
       def install
         bin.install "sshtunnel"
       end
     end
     if Hardware::CPU.intel?
-      url "https://github.com/dueckminor/go-sshtunnel/releases/download/v1.8/sshtunnel-1.8-linux-amd64.tar.gz"
-      sha256 "bae433c752f1cc05cb325c713c48c3b0ff71ea5746d67f1bc5b1be2561602668"
+      url "https://github.com/dueckminor/go-sshtunnel/releases/download/v1.8/sshtunnel-1.9-linux-amd64.tar.gz"
+      sha256 "3d128913d97f87f3701ae63826f3440f66807852479f7d90a00d59977b6a1f6b"
 
       def install
         bin.install "sshtunnel"
