@@ -42,10 +42,10 @@ jobs:
         # Prefix the list here with "+" to use these queries and those in the config file.
         # queries: ./path/to/local/query, your-org/your-repo/queries@main
 
-    - name: Set up Go 1.23
+    - name: Set up Go 1.24
       uses: actions/setup-go@v5
       with:
-        go-version: 1.23
+        go-version: 1.24
       id: go
 
     # Autobuild attempts to build any compiled languages  (C/C++, C#, or Java).
