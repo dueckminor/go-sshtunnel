@@ -19,3 +19,10 @@ jobs:
     - name: Build
       run: |
         ./scripts/build
+
+    - name: Validate the Goreleaser config
+      uses: goreleaser/goreleaser-action@v6
+      with:
+        distribution: goreleaser
+        version: latest
+        args: check
