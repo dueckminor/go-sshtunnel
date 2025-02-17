@@ -9,7 +9,7 @@ class GoSshtunnel < Formula
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/dueckminor/go-sshtunnel/releases/download/v1.8/sshtunnel-1.9-darwin-arm64.tar.gz"
+      url "https://github.com/dueckminor/go-sshtunnel/releases/download/v1.9/sshtunnel-1.9-darwin-arm64.tar.gz"
       sha256 "d5ac0f709d611e272037336b6058f3f1496c0b4c44407c32dfffcddbca0632cc"
 
       def install
@@ -17,7 +17,7 @@ class GoSshtunnel < Formula
       end
     end
     if Hardware::CPU.intel?
-      url "https://github.com/dueckminor/go-sshtunnel/releases/download/v1.8/sshtunnel-1.9-darwin-amd64.tar.gz"
+      url "https://github.com/dueckminor/go-sshtunnel/releases/download/v1.9/sshtunnel-1.9-darwin-amd64.tar.gz"
       sha256 "eb39bbd1dcadfef81e8a45dd40f5f639558154217a086245d040a75bd8e12a2c"
 
       def install
@@ -28,7 +28,7 @@ class GoSshtunnel < Formula
 
   on_linux do
     if Hardware::CPU.arm? && Hardware::CPU.is_64_bit?
-      url "https://github.com/dueckminor/go-sshtunnel/releases/download/v1.8/sshtunnel-1.9-linux-arm64.tar.gz"
+      url "https://github.com/dueckminor/go-sshtunnel/releases/download/v1.9/sshtunnel-1.9-linux-arm64.tar.gz"
       sha256 "abf05764f68869eabf51437a336a34e13d705f9bb4000419c8eb046b1185a452"
 
       def install
@@ -36,7 +36,7 @@ class GoSshtunnel < Formula
       end
     end
     if Hardware::CPU.intel?
-      url "https://github.com/dueckminor/go-sshtunnel/releases/download/v1.8/sshtunnel-1.9-linux-amd64.tar.gz"
+      url "https://github.com/dueckminor/go-sshtunnel/releases/download/v1.9/sshtunnel-1.9-linux-amd64.tar.gz"
       sha256 "3d128913d97f87f3701ae63826f3440f66807852479f7d90a00d59977b6a1f6b"
 
       def install
