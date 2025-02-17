@@ -9,8 +9,8 @@ class GoSshtunnel < Formula
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/dueckminor/go-sshtunnel/releases/download/v1.8/sshtunnel-1.8-darwin-arm64.tar.gz"
-      sha256 "d192ba44874ac425e8b6c2995f911c497d01bc34c4daedc749cc4f830acbe98d"
+      url "https://github.com/dueckminor/go-sshtunnel/archive/refs/tags/v1.9.tar.gz"
+      sha256 "05b8f1b89b7c7b93d6bcd137983bdb4cdee7dc8c0756bad774f413ea48053b54"
 
       def install
         bin.install "sshtunnel"
