@@ -1,5 +1,7 @@
 github.com/ScaleFT/sshkeys v1.3.0 h1:pDcJYY/94lKhboT66VZUx/+dL14YuNp1fsbnj2jyufY=
 github.com/ScaleFT/sshkeys v1.3.0/go.mod h1:DSaStfWdeJjrMATO9ff2ze52NUwV5TSqjdKhXFteUJ8=
+github.com/ScaleFT/sshkeys v1.4.0 h1:Yqd0cKA5PUvwV0dgRI67BDHGTsMHtGQBZbLXh1dthmE=
+github.com/ScaleFT/sshkeys v1.4.0/go.mod h1:GineMkS8SEiELq8q5DzA2Wnrw65SqdD9a+hm8JOU1I4=
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5 h1:0CwZNZbxp69SHPdPJAN/hZIm0C4OItdklCFmMRWYpio=
 github.com/armon/go-socks5 v0.0.0-20160902184237-e75332964ef5/go.mod h1:wHh0iHkYZB8zMSxRWpUBQtwG5a7fFgvEO+odwuTv2gs=
 github.com/bytedance/sonic v1.12.8 h1:4xYRVRlXIgvSZ4e8iVTlMF5szgpXd4AfvuWgA8I8lgs=
