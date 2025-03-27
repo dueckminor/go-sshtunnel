@@ -9,7 +9,7 @@ require (
 	github.com/manifoldco/promptui v0.9.0
 	github.com/miekg/dns v1.1.64
 	golang.org/x/crypto v0.36.0
-	golang.org/x/net v0.37.0
+	golang.org/x/net v0.38.0
 )
 
 require (
