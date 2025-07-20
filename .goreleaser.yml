@@ -44,15 +44,15 @@ release:
     owner: dueckminor
     name: go-sshtunnel
 
-homebrew_casks:
-- name: go-sshtunnel
-  directory: Casks
-  homepage: "https://github.com/dueckminor/go-sshtunnel/"
-  description: "A tiny ssh tunnel implemented in GO. It's main purpose is to establish an SSH connection from a Docker container to a jumpbox and redirect all outgoing TCP traffic over this connection."
-  test: |
-    system "#{bin}/sshtunnel --version"
-  install: |
-    bin.install "sshtunnel"
-  repository:
-    owner: dueckminor
-    name: go-sshtunnel
+# homebrew_casks:
+#  - name: go-sshtunnel
+#    directory: Casks
+#    homepage: "https://github.com/dueckminor/go-sshtunnel/"
+#    description: "A tiny ssh tunnel implemented in GO. It's main purpose is to establish an SSH connection from a Docker container to a jumpbox and redirect all outgoing TCP traffic over this connection."
+#    test: |
+#      system "#{bin}/sshtunnel --version"
+#    install: |
+#      bin.install "sshtunnel"
+#    repository:
+#      owner: dueckminor
+#      name: go-sshtunnel
