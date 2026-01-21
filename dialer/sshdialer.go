@@ -53,16 +53,18 @@ type SSHConnector struct {
 }
 
 func NewSSHDialer(timeout int) (sshDialer *SSHDialer, err error) {
+	dirName, _ := os.UserHomeDir()
+	publicKeyBytes, _ := os.ReadFile(fmt.Sprintf("%s/.ssh/known_hosts", dirName))
+	publicKey, _ := ssh.ParsePublicKey(publicKeyBytes)
+
 	sshDialer = &SSHDialer{
-		config: &ssh.ClientConfig{},
+		config: &ssh.ClientConfig{
+			Auth:            []ssh.AuthMethod{nil},
+			HostKeyCallback: ssh.FixedHostKey(publicKey),
+			Timeout:         time.Duration(timeout) * time.Second,
+		},
 		client: nil,
-		lock:   sync.RWMutex{}}
-
-	//dialers["default"] = sshDialer
-
-	sshDialer.config.Timeout = time.Duration(timeout) * time.Second
-	sshDialer.config.HostKeyCallback = func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-		return nil
+		lock:   sync.RWMutex{},
 	}
 	return sshDialer, nil
 }
@@ -75,7 +77,7 @@ func passPhraseToBuffer(passPhrase string) []byte {
 	}
 }
 
-// CheckSSHKey/ verifies that the encodedKey can be decoded and converts it
+// CheckSSHKey verifies that the encodedKey can be decoded and converts it
 // to a format that ssh.ParsePrivateKeyWithPassphrase can parse
 func CheckSSHKey(encodedKey string, passPhrase string) error {
 	_, err := sshkeys.ParseEncryptedPrivateKey([]byte(encodedKey), passPhraseToBuffer(passPhrase))
