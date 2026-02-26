@@ -1,6 +1,6 @@
 module github.com/dueckminor/go-sshtunnel
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/ScaleFT/sshkeys v1.4.0
@@ -9,7 +9,7 @@ require (
 	github.com/manifoldco/promptui v0.9.0
 	github.com/miekg/dns v1.1.72
 	golang.org/x/crypto v0.48.0
-	golang.org/x/net v0.50.0
+	golang.org/x/net v0.51.0
 )
 
 require (
