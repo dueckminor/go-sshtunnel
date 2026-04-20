@@ -166,7 +166,7 @@ jobs:
 
       - name: Upload daemon log on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: daemon-log
           path: /tmp/sshtunnel-daemon.log
