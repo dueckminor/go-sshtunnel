@@ -2,11 +2,13 @@ package dialer
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"log"
 	"net"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,6 +19,7 @@ import (
 	"github.com/dueckminor/go-sshtunnel/logger"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 func quote(input string) string {
@@ -50,19 +53,35 @@ type SSHConnector struct {
 	config      *ssh.ClientConfig
 	sshDialer   *SSHDialer
 	waiting     []chan bool
+	// pendingHostKey holds context for an unknown-host-key prompt.
+	pendingHostKey *pendingHostKeyInfo
+}
+
+// pendingHostKeyInfo holds the data needed to resolve an unknown-host-key prompt.
+type pendingHostKeyInfo struct {
+	hostname    string
+	remote      net.Addr
+	key         ssh.PublicKey
+	fingerprint string
+	decision    chan bool // receives true=accept, false=reject
 }
 
 func NewSSHDialer(timeout int) (sshDialer *SSHDialer, err error) {
+	dirName, _ := os.UserHomeDir()
+	knownHostsFile := filepath.Join(dirName, ".ssh", "known_hosts")
+
+	hostKeyCallback, err := knownhosts.New(knownHostsFile)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load known_hosts from %s: %w", knownHostsFile, err)
+	}
+
 	sshDialer = &SSHDialer{
-		config: &ssh.ClientConfig{},
+		config: &ssh.ClientConfig{
+			HostKeyCallback: hostKeyCallback,
+			Timeout:         time.Duration(timeout) * time.Second,
+		},
 		client: nil,
-		lock:   sync.RWMutex{}}
-
-	//dialers["default"] = sshDialer
-
-	sshDialer.config.Timeout = time.Duration(timeout) * time.Second
-	sshDialer.config.HostKeyCallback = func(hostname string, remote net.Addr, key ssh.PublicKey) error {
-		return nil
+		lock:   sync.RWMutex{},
 	}
 	return sshDialer, nil
 }
@@ -75,7 +94,7 @@ func passPhraseToBuffer(passPhrase string) []byte {
 	}
 }
 
-// CheckSSHKey/ verifies that the encodedKey can be decoded and converts it
+// CheckSSHKey verifies that the encodedKey can be decoded and converts it
 // to a format that ssh.ParsePrivateKeyWithPassphrase can parse
 func CheckSSHKey(encodedKey string, passPhrase string) error {
 	_, err := sshkeys.ParseEncryptedPrivateKey([]byte(encodedKey), passPhraseToBuffer(passPhrase))
@@ -248,6 +267,28 @@ func (sshConnector *SSHConnector) Done() bool {
 		sshConnector.status == control.ConnectStatusFailed
 }
 
+func (sshConnector *SSHConnector) HostKeyFingerprint() string {
+	sshConnector.lock.RLock()
+	defer sshConnector.lock.RUnlock()
+	if sshConnector.pendingHostKey == nil {
+		return ""
+	}
+	return sshConnector.pendingHostKey.fingerprint
+}
+
+func (sshConnector *SSHConnector) AcceptHostKey(accept bool) error {
+	sshConnector.lock.Lock()
+	defer sshConnector.lock.Unlock()
+	if sshConnector.status != control.ConnectStatusUnknownHostKey {
+		return fmt.Errorf("wrong status. Expected %s, Have %s",
+			control.ConnectStatusUnknownHostKey, sshConnector.status)
+	}
+	sshConnector.status = control.ConnectStatusHandshake
+	sshConnector.pendingHostKey.decision <- accept
+	sshConnector.notifyWaitingLocked()
+	return nil
+}
+
 func (sshConnector *SSHConnector) Print(msg string) {
 	sshConnector.lock.Lock()
 	defer sshConnector.lock.Unlock()
@@ -277,6 +318,90 @@ func (sshConnector *SSHConnector) connect() {
 
 	cfg := new(ssh.ClientConfig)
 	*cfg = *sshConnector.sshDialer.config
+
+	// Wrap the base HostKeyCallback to handle the interactive unknown-host-key
+	// prompt (analogous to the "The authenticity of host … can't be established"
+	// message in the OpenSSH client). A key mismatch (possible MitM) is always
+	// rejected, even in interactive mode.
+	baseCallback := cfg.HostKeyCallback
+	cfg.HostKeyCallback = func(hostname string, remote net.Addr, key ssh.PublicKey) error {
+		err := baseCallback(hostname, remote, key)
+		if err == nil {
+			return nil // key is known and matches
+		}
+
+		var keyErr *knownhosts.KeyError
+		if !isKeyError(err, &keyErr) {
+			return err // some other error
+		}
+
+		if len(keyErr.Want) > 0 {
+			// Key mismatch – a different key was expected. This is a potential
+			// MitM attack; always abort regardless of interactive mode.
+			sshConnector.Printf(
+				"WARNING: REMOTE HOST IDENTIFICATION HAS CHANGED for %s!\n"+
+					"Someone could be eavesdropping on you right now (man-in-the-middle attack)!\n"+
+					"Expected fingerprint: %s\n"+
+					"Got fingerprint:      %s\n",
+				hostname,
+				ssh.FingerprintSHA256(keyErr.Want[0].Key),
+				ssh.FingerprintSHA256(key),
+			)
+			return err
+		}
+
+		// Host is not in known_hosts at all.
+		fingerprint := ssh.FingerprintSHA256(key)
+
+		if !sshConnector.interactive {
+			// Non-interactive: fail with a helpful message.
+			sshConnector.Printf(
+				"Host %s is not in known_hosts (fingerprint: %s).\n"+
+					"Add it manually or use an interactive session to confirm.\n",
+				hostname, fingerprint,
+			)
+			return err
+		}
+
+		// Interactive: pause and ask the user.
+		decision := make(chan bool, 1)
+		sshConnector.lock.Lock()
+		sshConnector.pendingHostKey = &pendingHostKeyInfo{
+			hostname:    hostname,
+			remote:      remote,
+			key:         key,
+			fingerprint: fingerprint,
+			decision:    decision,
+		}
+		sshConnector.status = control.ConnectStatusUnknownHostKey
+		sshConnector.messages = append(sshConnector.messages,
+			fmt.Sprintf(
+				"The authenticity of host %s can't be established.\n"+
+					"Host key fingerprint (SHA256): %s",
+				hostname, fingerprint,
+			),
+		)
+		sshConnector.notifyWaitingLocked()
+		sshConnector.lock.Unlock()
+
+		accepted := <-decision
+
+		sshConnector.lock.Lock()
+		sshConnector.pendingHostKey = nil
+		sshConnector.lock.Unlock()
+
+		if !accepted {
+			return fmt.Errorf("host key for %s rejected by user", hostname)
+		}
+
+		// User accepted – persist the key to known_hosts.
+		if writeErr := appendKnownHost(hostname, key); writeErr != nil {
+			log.Printf("Warning: could not write host key to known_hosts: %v\n", writeErr)
+		} else {
+			sshConnector.Printf("Permanently added %s to known_hosts.\n", hostname)
+		}
+		return nil
+	}
 
 	cfg.Auth = append(sshConnector.sshDialer.config.Auth, ssh.PasswordCallback(func() (secret string, err error) {
 		sshConnector.status = control.ConnectStatusNeedPassphrase
@@ -329,7 +454,6 @@ func (sshConnector *SSHConnector) connect() {
 
 		sshConnector.status = control.ConnectStatusHandshake
 
-		// cSpell: ignore chans,reqs
 		var c ssh.Conn
 		var chans <-chan ssh.NewChannel
 		var reqs <-chan *ssh.Request
@@ -373,4 +497,29 @@ func (sshConnector *SSHConnector) Wait() error {
 
 	<-w
 	return nil
+}
+
+func isKeyError(err error, target **knownhosts.KeyError) bool {
+	var ke *knownhosts.KeyError
+	ok := errors.As(err, &ke)
+	if ok {
+		*target = ke
+	}
+	return ok
+}
+
+func appendKnownHost(hostname string, key ssh.PublicKey) error {
+	dirName, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	knownHostsPath := filepath.Join(dirName, ".ssh", "known_hosts")
+	f, err := os.OpenFile(knownHostsPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	line := knownhosts.Line([]string{hostname}, key)
+	_, err = fmt.Fprintln(f, line)
+	return err
 }

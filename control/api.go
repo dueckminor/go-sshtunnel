@@ -71,18 +71,21 @@ const (
 	ConnectStatusConnecting     ConnectStatus = "connecting"
 	ConnectStatusHandshake      ConnectStatus = "handshake"
 	ConnectStatusNeedPassphrase ConnectStatus = "need_passphrase"
+	ConnectStatusUnknownHostKey ConnectStatus = "unknown_host_key"
 	ConnectStatusSucceeded      ConnectStatus = "succeeded"
 	ConnectStatusFailed         ConnectStatus = "failed"
 )
 
 // ConnectIn defines the input parameters of the Connect API call
 type ConnectIn struct {
-	ID         string `json:"id"`
-	Passphrase string `json:"passphrase"`
+	ID            string `json:"id"`
+	Passphrase    string `json:"passphrase"`
+	AcceptHostKey *bool  `json:"accept_host_key,omitempty"`
 }
 
 type ConnectOut struct {
-	ID       string        `json:"id"`
-	Status   ConnectStatus `json:"status"`
-	Messages []string      `json:"messages"`
+	ID                 string        `json:"id"`
+	Status             ConnectStatus `json:"status"`
+	Messages           []string      `json:"messages"`
+	HostKeyFingerprint string        `json:"host_key_fingerprint,omitempty"`
 }

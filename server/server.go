@@ -121,6 +121,12 @@ func (server *Server) Connect(in control.ConnectIn) (out control.ConnectOut, err
 		c.sshConnector.SetPassphrase(in.Passphrase)
 	}
 
+	if in.AcceptHostKey != nil {
+		if err := c.sshConnector.AcceptHostKey(*in.AcceptHostKey); err != nil {
+			return out, err
+		}
+	}
+
 	out.ID = c.id
 
 	for {
@@ -128,12 +134,19 @@ func (server *Server) Connect(in control.ConnectIn) (out control.ConnectOut, err
 			out.Messages = append(out.Messages, c.sshConnector.Message(c.messageCount))
 			c.messageCount++
 		} else {
-			if len(out.Messages) > 0 || c.sshConnector.Done() || c.sshConnector.Status() == control.ConnectStatusNeedPassphrase {
+			status := c.sshConnector.Status()
+			if c.sshConnector.Done() ||
+				status == control.ConnectStatusNeedPassphrase ||
+				status == control.ConnectStatusUnknownHostKey {
 				break
 			}
+			c.sshConnector.Wait() //nolint:errcheck
 		}
 	}
 	out.Status = c.sshConnector.Status()
+	if out.Status == control.ConnectStatusUnknownHostKey {
+		out.HostKeyFingerprint = c.sshConnector.HostKeyFingerprint()
+	}
 	return out, nil
 }
 
