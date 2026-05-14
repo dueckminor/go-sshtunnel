@@ -5,7 +5,7 @@
 class GoSshtunnel < Formula
   desc "A tiny ssh tunnel implemented in GO. It's main purpose is to establish an SSH connection from a Docker container to a jumpbox and redirect all outgoing TCP traffic over this connection."
   homepage "https://github.com/dueckminor/go-sshtunnel/"
-  version "1.8"
+  version "1.9"
 
   on_macos do
     if Hardware::CPU.arm?
