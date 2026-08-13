@@ -8,6 +8,8 @@ jobs:
   build:
     name: Create Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Set up Go 1.24
         uses: actions/setup-go@v7
@@ -25,4 +27,5 @@ jobs:
           version: latest
           args: release --clean
         env:
-          GITHUB_TOKEN: ${{ secrets.TIS_SERVICE_USER_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TIS_SERVICE_USER_TOKEN: ${{ secrets.TIS_SERVICE_USER_TOKEN }}
