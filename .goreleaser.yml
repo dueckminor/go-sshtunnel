@@ -47,11 +47,11 @@ release:
 homebrew_casks:
   - name: go-sshtunnel
     directory: Casks
-    homepage: "https://github.com/dueckminor/go-sshtunnel/"
+    homepage: "https://github.com/dueckminor/go-sshtunnel-homebrew"
     description: "A tiny ssh tunnel implemented in GO. It's main purpose is to establish an SSH connection from a Docker container to a jumpbox and redirect all outgoing TCP traffic over this connection."
     binaries: ["sshtunnel"]
     repository:
       owner: dueckminor
-      name: go-sshtunnel
+      name: go-sshtunnel-homebrew
       branch: main
       token: "{{ .Env.TIS_SERVICE_USER_TOKEN }}"
