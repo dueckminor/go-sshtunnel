@@ -54,3 +54,4 @@ homebrew_casks:
       owner: dueckminor
       name: go-sshtunnel
       branch: main
+      token: "{{ .Env.TIS_SERVICE_USER_TOKEN }}"
